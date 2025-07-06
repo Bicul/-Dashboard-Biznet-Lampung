@@ -1,7 +1,8 @@
 // script.js
 // URL Google Apps Script Anda yang akan mengembalikan data pelanggan dalam format JSON.
 // PASTIKAN URL INI BENAR dan Apps Script Anda di-deploy dengan akses "Anyone".
-const DATA_URL = 'https://script.google.com/macros/s/AKfycbzkV_Z8qbvCw--RYaOTDBYia9DKob0Du5J9c47JCKr3zmr8_6AI0QPle6UgituFTs3hJA/exec';
+// GANTI DENGAN URL APPS SCRIPT ANDA YANG BARU SETELAH DEPLOYMENT ULANG
+const DATA_URL = 'https://script.google.com/macros/s/AKfycbzkV_Z8qbvCw--RYaOTDBYia9DKob0Du5J9c47JCKr3zmr8_6AI0QPle6UgituFTs3hJA/exec'; // URL telah diperbarui dengan yang Anda berikan.
 
 // Global variables to store all customer data and filtered data
 let allCustomerData = [];
@@ -53,12 +54,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (branchListToggle && branchList && branchToggleIcon) {
         branchListToggle.addEventListener('click', (e) => {
             e.preventDefault();
-            if (branchList.style.display === 'none' || branchList.style.display === '') {
-                branchList.style.display = 'block';
+            if (branchList.classList.contains('hidden')) {
+                branchList.classList.remove('hidden');
                 branchToggleIcon.classList.remove('fa-chevron-down');
                 branchToggleIcon.classList.add('fa-chevron-up');
             } else {
-                branchList.style.display = 'none';
+                branchList.classList.add('hidden');
                 branchToggleIcon.classList.remove('fa-chevron-up');
                 branchToggleIcon.classList.add('fa-chevron-down');
             }
@@ -91,10 +92,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('branchPrevPage')?.addEventListener('click', () => changeBranchCustomerPage(-1));
     document.getElementById('branchNextPage')?.addEventListener('click', () => changeBranchCustomerPage(1));
 
-    // Event listeners for Sales Code Status filters
-    document.getElementById('salesCodeYearFilter')?.addEventListener('change', () => populateBranchSalesCodeStatusTable(currentBranchData));
-    document.getElementById('salesCodeMonthFilter')?.addEventListener('change', () => populateBranchSalesCodeStatusTable(currentBranchData));
-
     // Event listeners for Bundle Name Analysis filters
     document.getElementById('bundleNameYearFilter')?.addEventListener('change', () => renderBranchBundleNameChart(currentBranchData));
     document.getElementById('bundleNameMonthFilter')?.addEventListener('change', () => renderBranchBundleNameChart(currentBranchData));
@@ -113,8 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // New event listeners for Daily Termination Subscribers filters
     document.getElementById('dailyTerminationYearFilter')?.addEventListener('change', () => renderBranchDailyTerminationChart(currentBranchData));
-    document.getElementById('dailyTerminationMonthFilter')?.addEventListener('change', () => renderBranchDailyTerminationChart(currentBranchData));
-
+    document.getElementById('dailyTerminationMonthFilter')?.addEventListener('click', () => renderBranchDailyTerminationChart(currentBranchData)); // Changed to click for consistency
 
     // Event listener for Dashboard Nav Link
     document.getElementById('dashboardNavLink')?.addEventListener('click', (e) => {
@@ -124,19 +120,120 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.sidebar-nav a').forEach(link => link.classList.remove('active'));
         document.getElementById('dashboardNavLink').classList.add('active');
         const allBranchesItem = document.getElementById('branchList').querySelector('[data-branch-name="All Branches"]');
-        if (allBranchesItem) allBranchesItem.classList.add('active'); // Keep All Branches active in sidebar
+        if (allBranchesItem) {
+            document.querySelectorAll('#branchList .list-group-item').forEach(item => item.classList.remove('active'));
+            allBranchesItem.classList.add('active');
+        }
     });
 
-    // Event listener for closing the inline terminated customers section
+    // Event listener for clicking the main dashboard Termination Subscribers KPI
+    document.getElementById('terminationSubscribersKpi')?.addEventListener('click', () => {
+        displayInlineTerminatedCustomers('All Branches');
+    });
     document.getElementById('closeInlineTerminatedCustomersBtn')?.addEventListener('click', hideInlineTerminatedCustomers);
 });
+
+/**
+ * Helper function to parse date strings into Date objects.
+ * Handles various date formats and returns null for invalid dates.
+ * Specifically handles DD/MM/YYYY and Excel date serials.
+ * @param {string|number} dateValue - The date string or Excel serial number to parse.
+ * @returns {Date|null} A Date object if parsing is successful, otherwise null.
+ */
+function parseDateString(dateValue) {
+    if (dateValue === null || dateValue === undefined || dateValue === '') return null;
+
+    // Try parsing as a number (Excel date serial)
+    if (typeof dateValue === 'number') {
+        // Excel date serial number (days since 1899-12-30).
+        // Adjust for JavaScript Date object (milliseconds since 1970-01-01).
+        // 25569 is the number of days between 1899-12-30 and 1970-01-01.
+        // 86400000 is milliseconds in a day.
+        const excelEpoch = new Date(1899, 11, 30); // Dec 30, 1899
+        const date = new Date(excelEpoch.getTime() + dateValue * 24 * 60 * 60 * 1000);
+        if (!isNaN(date.getTime())) {
+            date.setHours(0, 0, 0, 0); // Normalize to start of day
+            return date;
+        }
+    }
+
+    const dateString = String(dateValue);
+
+    // Try parsing DD/MM/YYYY format (common in Indonesia)
+    const dmyParts = dateString.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
+    if (dmyParts) {
+        const day = parseInt(dmyParts[1]);
+        const month = parseInt(dmyParts[2]);
+        let year = parseInt(dmyParts[3]);
+
+        // Handle 2-digit year (e.g., 23 -> 2023, 98 -> 1998)
+        if (year < 100) year += (year > 50 ? 1900 : 2000);
+
+        const date = new Date(year, month - 1, day); // Month is 0-indexed in JS Date
+        // Validate if the parsed date components match the original (e.g., 31/02/2023 should be invalid)
+        if (date.getFullYear() === year && (date.getMonth() + 1) === month && date.getDate() === day) {
+            date.setHours(0, 0, 0, 0); // Normalize to start of day
+            return date;
+        }
+    }
+
+    // Fallback: Try parsing as a standard date string (e.g., ISO-MM-DD, MM/DD/YYYY)
+    let date = new Date(dateString);
+    if (!isNaN(date.getTime())) {
+        date.setHours(0, 0, 0, 0); // Normalize to start of day
+        return date;
+    }
+
+    console.warn(`Failed to parse date: "${dateString}". Returning null.`);
+    return null;
+}
+
+/**
+ * Calculates the duration between two dates in years and months.
+ * @param {Date} startDate - The start date.
+ * @param {Date} endDate - The end date.
+ * @returns {string} A string representing the duration (e.g., "1 tahun 2 bulan", "5 bulan", "Tidak diketahui").
+ */
+function calculateDuration(startDate, endDate) {
+    if (!startDate || !endDate || !(startDate instanceof Date) || !(endDate instanceof Date)) {
+        return "Tidak diketahui";
+    }
+
+    let years = endDate.getFullYear() - startDate.getFullYear();
+    let months = endDate.getMonth() - startDate.getMonth();
+
+    if (months < 0) {
+        years--;
+        months += 12;
+    }
+
+    const parts = [];
+    if (years > 0) {
+        parts.push(`${years} tahun`);
+    }
+    if (months > 0) {
+        parts.push(`${months} bulan`);
+    }
+
+    if (parts.length === 0) {
+        // If duration is less than a month, calculate in days
+        const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+        if (diffDays > 0) {
+            return `${diffDays} hari`;
+        }
+        return "Kurang dari 1 hari";
+    }
+    return parts.join(' ');
+}
+
 
 /**
  * Shows the main dashboard view and hides the branch detail view.
  */
 function showMainDashboard() {
-    document.getElementById('mainDashboardView').style.display = 'block';
-    document.getElementById('branchDetailView').style.display = 'none';
+    document.getElementById('mainDashboardView').classList.remove('hidden');
+    document.getElementById('branchDetailView').classList.add('hidden');
     hideInlineTerminatedCustomers(); // Hide inline section when returning to main dashboard
 
     // Update active state in sidebar
@@ -157,17 +254,18 @@ function showMainDashboard() {
 function setProductFilter(filterType) {
     currentProductFilter = filterType;
     // Update button active states
-    document.querySelectorAll('.header button').forEach(button => {
-        button.classList.remove('bg-blue-600', 'hover:bg-blue-700');
-        button.classList.add('bg-gray-600', 'hover:bg-gray-700');
+    document.querySelectorAll('.header-buttons button').forEach(button => {
+        button.classList.remove('active');
     });
     // Ensure the correct button ID is targeted
-    let targetButtonId = `filter${filterType.charAt(0).toUpperCase() + filterType.slice(1)}Products`;
-    if (filterType === 'all') { // Special case for 'all' as it's not 'AllProducts'
+    let targetButtonId = `filter${filterType.charAt(0).toUpperCase() + filterType.slice(1)}`;
+    if (filterType === 'all') {
         targetButtonId = 'filterAllProducts';
     }
-    document.getElementById(targetButtonId)?.classList.remove('bg-gray-600', 'hover:bg-gray-700');
-    document.getElementById(targetButtonId)?.classList.add('bg-blue-600', 'hover:bg-blue-700');
+    const activeButton = document.getElementById(targetButtonId);
+    if (activeButton) {
+        activeButton.classList.add('active');
+    }
     
     updateDashboard();
     hideInlineTerminatedCustomers(); // Hide inline section when product filter changes
@@ -191,10 +289,10 @@ async function fetchData() {
             throw new Error(`Gagal mengambil data: Status HTTP ${response.status}. Pesan: ${errorText.substring(0, 100)}...`);
         }
         
-        allCustomerData = await response.json();
-        console.log('Parsed customer data:', allCustomerData);
+        const rawData = await response.json();
+        console.log('Parsed raw customer data:', rawData);
 
-        if (!Array.isArray(allCustomerData) || allCustomerData.length === 0) {
+        if (!Array.isArray(rawData) || rawData.length === 0) {
             console.warn('Data fetched is empty or not an array. Displaying empty dashboard.');
             const mainContent = document.querySelector('.main-content');
             if (mainContent) {
@@ -204,41 +302,53 @@ async function fetchData() {
             return;
         }
 
-        // Ensure date fields are converted to Date objects for easier manipulation.
-        let tempLatestDate = null;
-
-        allCustomerData.forEach(customer => {
-            const processDateField = (dateValue, fieldName) => {
-                if (!dateValue) return null;
-                const date = new Date(dateValue);
-                // Basic validation for date sanity (e.g., year within reasonable range)
-                if (isNaN(date.getTime()) || date.getFullYear() > 2100 || date.getFullYear() < 1900) {
-                    console.warn(`Invalid or out-of-range date detected for ${fieldName}: ${dateValue}. Skipping.`);
-                    return null;
-                }
-                // Normalisasi ke awal hari (00:00:00) di zona waktu lokal
-                date.setHours(0, 0, 0, 0); 
-                return date;
+        // Process raw data: parse dates and ensure consistent keys
+        allCustomerData = rawData.map(customer => {
+            return {
+                ...customer,
+                // Ensure date fields are parsed
+                CONTRACTSTARTDATE: parseDateString(customer.CONTRACTSTARTDATE),
+                EXPIREDDATE: parseDateString(customer.EXPIREDDATE),
+                TERMDATE: parseDateString(customer.TERMDATE),
+                LASTPAYMENTDATE: parseDateString(customer.LASTPAYMENTDATE),
+                
+                // Ensure STATUS is always uppercase for consistent filtering
+                STATUS: customer.STATUS ? String(customer.STATUS).toUpperCase() : null,
+                // Ensure BUNDLE_NAME is always uppercase for consistent filtering
+                BUNDLE_NAME: customer.BUNDLE_NAME ? String(customer.BUNDLE_NAME).toUpperCase() : null,
+                // Ensure SERVICE_TYPE is always uppercase for consistent filtering
+                SERVICE_TYPE: customer.SERVICE_TYPE ? String(customer.SERVICE_TYPE).toUpperCase() : null,
+                // Ensure MODEM_STATUS is always uppercase for consistent filtering
+                MODEM_STATUS: customer.MODEM_STATUS ? String(customer.MODEM_STATUS).toUpperCase() : null,
+                // Ensure PROMO_CODE is always uppercase for consistent filtering
+                PROMO_CODE: customer.PROMO_CODE ? String(customer.PROMO_CODE).toUpperCase() : null,
+                // Ensure SALESCODE is always string for consistency
+                SALESCODE: customer.SALESCODE ? String(customer.SALESCODE) : null,
+                // Ensure BRANCH_FROM_SALESCODE is always string for consistency
+                BRANCH_FROM_SALESCODE: customer.BRANCH_FROM_SALESCODE ? String(customer.BRANCH_FROM_SALESCODE).toUpperCase() : null, // Added .toUpperCase() for consistency
+                // Ensure CONTRACTACCOUNT is always string for consistency
+                CONTRACTACCOUNT: customer.CONTRACTACCOUNT ? String(customer.CONTRACTACCOUNT) : null,
+                // Ensure BP_PHONE is always string for consistency
+                BP_PHONE: customer.BP_PHONE ? String(customer.BP_PHONE) : null,
             };
+        });
+        console.log('Processed allCustomerData:', allCustomerData);
 
-            customer.CONTRACTSTARTDATE = processDateField(customer.CONTRACTSTARTDATE, 'CONTRACTSTARTDATE');
-            customer.EXPIREDDATE = processDateField(customer.EXPIREDDATE, 'EXPIREDDATE');
-            customer.TERMDATE = processDateField(customer.TERMDATE, 'TERMDATE');
-            customer.LASTPAYMENTDATE = processDateField(customer.LASTPAYMENTDATE, 'LASTPAYMENTDATE');
+        // Determine the latest available date from relevant date fields
+        let tempLatestDate = null;
+        allCustomerData.forEach(customer => {
+            const dates = [
+                customer.CONTRACTSTARTDATE,
+                customer.TERMDATE,
+                customer.LASTPAYMENTDATE,
+                customer.EXPIREDDATE
+            ].filter(d => d instanceof Date && d <= new Date()); // Only valid dates up to today
 
-            const now = new Date();
-            now.setHours(0, 0, 0, 0);
-
-            // Determine the latest available date from relevant date fields
-            if (customer.CONTRACTSTARTDATE && customer.CONTRACTSTARTDATE <= now && (!tempLatestDate || customer.CONTRACTSTARTDATE > tempLatestDate)) {
-                tempLatestDate = customer.CONTRACTSTARTDATE;
-            }
-            if (customer.TERMDATE && customer.TERMDATE <= now && (!tempLatestDate || customer.TERMDATE > tempLatestDate)) {
-                tempLatestDate = customer.TERMDATE;
-            }
-            if (customer.LASTPAYMENTDATE && customer.LASTPAYMENTDATE <= now && (!tempLatestDate || customer.LASTPAYMENTDATE > tempLatestDate)) {
-                tempLatestDate = customer.LASTPAYMENTDATE;
-            }
+            dates.forEach(date => {
+                if (!tempLatestDate || date > tempLatestDate) {
+                    tempLatestDate = date;
+                }
+            });
         });
         latestAvailableDataDate = tempLatestDate;
         console.log('Latest available data date after robust processing:', latestAvailableDataDate ? latestAvailableDataDate.toLocaleDateString('id-ID') : 'N/A');
@@ -248,11 +358,19 @@ async function fetchData() {
         populateBranchesList();
 
         const lastUpdateDateElement = document.getElementById('lastUpdateDate');
+        const lastUpdateDateHeaderElement = document.getElementById('lastUpdateDateHeader');
         if (lastUpdateDateElement) {
             lastUpdateDateElement.textContent = latestAvailableDataDate ? 
                 `Data per: ${latestAvailableDataDate.toLocaleString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}` : 
                 'Data tidak tersedia';
         }
+        if (lastUpdateDateHeaderElement) {
+            lastUpdateDateHeaderElement.textContent = latestAvailableDataDate ? 
+                `Data per: ${latestAvailableDataDate.toLocaleString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}` : 
+                'Data tidak tersedia';
+        }
+        // Set initial product filter active state
+        setProductFilter(currentProductFilter);
 
     } catch (error) {
         console.error("Error fetching data:", error);
@@ -268,9 +386,8 @@ async function fetchData() {
         
         const mainContent = document.querySelector('.main-content');
         if (mainContent) {
-            mainContent.innerHTML = `<p class="text-center text-danger mt-5">${errorMessage}</p>`;
+            mainContent.innerHTML = `<p class="text-center text-red-500 mt-5">${errorMessage}</p>`;
         } else {
-            // Fallback for cases where mainContent is not available
             alert(errorMessage);
         }
     } finally {
@@ -297,15 +414,6 @@ function showLoading() {
  */
 function hideLoading() {
     document.querySelectorAll('.loading-overlay').forEach(overlay => overlay.remove());
-}
-
-/**
- * Populates global filter dropdown options (Service Type, Status) based on available data.
- * This is a placeholder for now as global filters are not currently in the HTML.
- */
-function populateGlobalFilters() {
-    // This function can be re-enabled and connected to HTML elements if global filters are re-introduced.
-    console.log('Populating global filters (function present but not used by current HTML).');
 }
 
 /**
@@ -347,7 +455,7 @@ function populateBranchesList() {
         branchItem.addEventListener('click', (e) => {
             e.preventDefault();
             document.querySelectorAll('.sidebar-nav a').forEach(link => link.classList.remove('active'));
-            document.getElementById('branchListToggle').classList.add('active'); // Activate main Branches link
+            document.getElementById('branchListToggle').classList.add('active'); 
             document.querySelectorAll('#branchList .list-group-item').forEach(item => item.classList.remove('active'));
             branchItem.classList.add('active'); // Activate specific branch link
             showBranchDetails(branch); // Show branch details page
@@ -365,8 +473,8 @@ function updateDashboard() {
     // Apply product filter
     if (currentProductFilter !== 'all') {
         dataToUse = dataToUse.filter(customer => {
-            const bundleName = customer.BUNDLE_NAME ? customer.BUNDLE_NAME.toUpperCase() : '';
-            const serviceType = customer.SERVICE_TYPE ? customer.SERVICE_TYPE.toUpperCase() : '';
+            const bundleName = customer.BUNDLE_NAME; // Already uppercased during parsing
+            const serviceType = customer.SERVICE_TYPE; // Already uppercased during parsing
 
             if (currentProductFilter === 'home') {
                 return ['BIZNET HOME', 'HOME 0D', 'HOME 1D', 'HOME 2D', 'HOME EMPLOYEE SPN', 'BIZNET PARTNER RESIDENTIAL'].includes(bundleName);
@@ -376,7 +484,7 @@ function updateDashboard() {
                 // For Enterprise, filter by SERVICE_TYPE 'Postpaid'
                 return serviceType === 'POSTPAID'; 
             }
-            return false; // Should not happen for 'all'
+            return false;
         });
     }
     console.log(`Updating dashboard for product filter: ${currentProductFilter}. Data count: ${dataToUse.length}`);
@@ -404,25 +512,23 @@ function updateMainKPIs(data) {
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     startOfMonth.setHours(0, 0, 0, 0);
 
-    const activeSubscribers = data.filter(c => c.STATUS && c.STATUS.toUpperCase() === 'ACTIVE').length;
+    const activeSubscribers = data.filter(c => c.STATUS === 'ACTIVE').length;
     
     // Calculate Suspended Subscribers
     const suspendedSubscribers = data.filter(c => 
-        c.STATUS && c.STATUS.toUpperCase() === 'SUSPENDED' 
+        c.STATUS === 'SUSPENDED' 
     ).length;
 
     // Termination Subscribers: Count customers with STATUS 'TERMINATED' and TERMDATE in the current month
     const terminationSubscribers = data.filter(c => 
-        c.STATUS && c.STATUS.toUpperCase() === 'TERMINATED' && 
+        c.STATUS === 'TERMINATED' && 
         c.TERMDATE && c.TERMDATE instanceof Date && 
         c.TERMDATE >= startOfMonth && c.TERMDATE <= today
     ).length;
 
     document.getElementById('activeSubscribersKpi').textContent = activeSubscribers;
-    // Update the Suspended Subscribers KPI
     document.getElementById('suspendedSubscribersKpi').textContent = suspendedSubscribers;
-    document.getElementById('terminationSubscribersKpi').textContent = terminationSubscribers;
-
+    document.getElementById('terminationSubscribersKpiValue').textContent = terminationSubscribers;
     console.log('KPIs Updated:', { activeSubscribers, suspendedSubscribers, terminationSubscribers });
 }
 
@@ -477,7 +583,7 @@ function renderTop5NewDemandChart(data) {
         options: {
             indexAxis: 'y', // Horizontal bar chart
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: false, // Allow chart-container to control height
             plugins: {
                 legend: {
                     display: false
@@ -485,12 +591,12 @@ function renderTop5NewDemandChart(data) {
                 title: {
                     display: false
                 },
-                datalabels: { // Konfigurasi datalabels
-                    color: '#ffffff', // Warna teks label
-                    anchor: 'end', // Posisi label (di akhir bar)
-                    align: 'end', // Penjajaran label (di akhir bar)
+                datalabels: { // Datalabels configuration
+                    color: '#ffffff', // Label text color
+                    anchor: 'end', // Label position (at the end of the bar)
+                    align: 'end', // Label alignment (at the end of the bar)
                     formatter: function(value, context) {
-                        return value; // Menampilkan nilai data
+                        return value; // Display data value
                     },
                     font: {
                         weight: 'bold',
@@ -580,7 +686,7 @@ function renderMtdRegistrationStatusChart(data) {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: false, // Allow chart-container to control height
             plugins: {
                 legend: {
                     display: false
@@ -588,7 +694,7 @@ function renderMtdRegistrationStatusChart(data) {
                 title: {
                     display: false
                 },
-                datalabels: { // Konfigurasi datalabels
+                datalabels: { // Datalabels configuration
                     color: '#ffffff',
                     anchor: 'end',
                     align: 'end',
@@ -647,7 +753,7 @@ function renderTopNetSubscribersList(data) {
             customer.CONTRACTSTARTDATE >= startOfMonth && customer.CONTRACTSTARTDATE <= today) {
             branchNetCounts[branch].new++;
         }
-        if (customer.STATUS && customer.STATUS.toUpperCase() === 'TERMINATED' && 
+        if (customer.STATUS === 'TERMINATED' && 
             customer.TERMDATE && customer.TERMDATE instanceof Date &&
             customer.TERMDATE >= startOfMonth && customer.TERMDATE <= today) {
             branchNetCounts[branch].terminated++;
@@ -703,7 +809,7 @@ function renderTopTerminateSubscribersList(data) {
             branchTerminateCounts[branch] = 0;
         }
 
-        if (customer.STATUS && customer.STATUS.toUpperCase() === 'TERMINATED' && 
+        if (customer.STATUS === 'TERMINATED' && 
             customer.TERMDATE && customer.TERMDATE instanceof Date &&
             customer.TERMDATE >= startOfMonth && customer.TERMDATE <= today) {
             branchTerminateCounts[branch]++;
@@ -751,8 +857,8 @@ function renderTopTerminateSubscribersList(data) {
  * @param {string} branchName - The name of the branch to display details for.
  */
 function showBranchDetails(branchName) {
-    document.getElementById('mainDashboardView').style.display = 'none';
-    document.getElementById('branchDetailView').style.display = 'block';
+    document.getElementById('mainDashboardView').classList.add('hidden');
+    document.getElementById('branchDetailView').classList.remove('hidden');
     hideInlineTerminatedCustomers(); // Hide inline section when navigating to branch details
 
     currentBranchName = branchName;
@@ -778,9 +884,8 @@ function showBranchDetails(branchName) {
     populateBranchCustomerFilters(currentBranchData);
 
     // Populate year and month filters for sales code status and bundle name analysis
-    populateYearMonthFilters('salesCodeYearFilter', 'salesCodeMonthFilter', currentBranchData);
     populateYearMonthFilters('bundleNameYearFilter', 'bundleNameMonthFilter', currentBranchData);
-    populateYearMonthFilters('modemStatusYearFilter', 'modemStatusMonthFilter', currentBranchData); // Populate for Modem Status
+    populateYearMonthFilters('modemStatusYearFilter', 'modemStatusMonthFilter', currentBranchData, 'CONTRACTSTARTDATE'); // Pass 'CONTRACTSTARTDATE' as the date field for filtering
     populateYearMonthFilters('netSubscribersYearFilter', 'netSubscribersMonthFilter', currentBranchData); // Populate for Net Subscribers
     populateYearMonthFilters('dailyNewYearFilter', 'dailyNewMonthFilter', currentBranchData); // Populate for Daily New Subscribers
     populateYearMonthFilters('dailyTerminationYearFilter', 'dailyTerminationMonthFilter', currentBranchData); // Populate for Daily Termination Subscribers
@@ -796,13 +901,13 @@ function showBranchDetails(branchName) {
  */
 function showBranchDetailSection(sectionType) {
     // Hide all sections first
-    document.getElementById('branchCustomerListSection').style.display = 'none';
-    document.getElementById('branchSalesCodeStatusSection').style.display = 'none';
-    document.getElementById('branchBundleNameAnalysisSection').style.display = 'none';
-    document.getElementById('branchModemStatusAnalysisSection').style.display = 'none'; // Hide new section
-    document.getElementById('branchNetSubscribersAnalysisSection').style.display = 'none'; // Hide new section
-    document.getElementById('branchDailyNewSubscribersSection').style.display = 'none'; // Hide new section
-    document.getElementById('branchDailyTerminationSubscribersSection').style.display = 'none'; // Hide new section
+    document.getElementById('branchCustomerListSection').classList.add('hidden');
+    document.getElementById('branchSalesCodeStatusSection').classList.add('hidden');
+    document.getElementById('branchBundleNameAnalysisSection').classList.add('hidden');
+    document.getElementById('branchModemStatusAnalysisSection').classList.add('hidden'); // Hide new section
+    document.getElementById('branchNetSubscribersAnalysisSection').classList.add('hidden'); // Hide new section
+    document.getElementById('branchDailyNewSubscribersSection').classList.add('hidden'); // Hide new section
+    document.getElementById('branchDailyTerminationSubscribersSection').classList.add('hidden'); // Hide new section
 
 
     // Deactivate all sub-navigation buttons
@@ -810,33 +915,32 @@ function showBranchDetailSection(sectionType) {
 
     // Show the selected section and activate its button
     if (sectionType === 'customerList') {
-        document.getElementById('branchCustomerListSection').style.display = 'block';
+        document.getElementById('branchCustomerListSection').classList.remove('hidden');
         document.getElementById('showCustomerListBtn').classList.add('active');
         displayBranchCustomers(filteredBranchCustomerData); // Re-display in case of page change
     } else if (sectionType === 'salesCodeStatus') {
-        document.getElementById('branchSalesCodeStatusSection').style.display = 'block';
+        document.getElementById('branchSalesCodeStatusSection').classList.remove('hidden');
         document.getElementById('showSalesCodeStatusBtn').classList.add('active');
-        populateBranchSalesCodeStatusTable(currentBranchData); // Re-render with current filters
+        // Call only the overall table for Sales Code Status
+        populateBranchSalesCodeStatusOverallTable(currentBranchData); 
     } else if (sectionType === 'bundleNameAnalysis') {
-        document.getElementById('branchBundleNameAnalysisSection').style.display = 'block';
+        document.getElementById('branchBundleNameAnalysisSection').classList.remove('hidden');
         document.getElementById('showBundleNameAnalysisBtn').classList.add('active');
         renderBranchBundleNameChart(currentBranchData); // Re-render with current filters
     } else if (sectionType === 'modemStatusAnalysis') { // New section
-        document.getElementById('branchModemStatusAnalysisSection').style.display = 'block';
+        document.getElementById('branchModemStatusAnalysisSection').classList.remove('hidden');
         document.getElementById('showModemStatusAnalysisBtn').classList.add('active');
         renderBranchModemStatusChart(currentBranchData);
     } else if (sectionType === 'netSubscribersAnalysis') { // New section
-        document.getElementById('branchNetSubscribersAnalysisSection').style.display = 'block';
+        document.getElementById('branchNetSubscribersAnalysisSection').classList.remove('hidden');
         document.getElementById('showNetSubscribersAnalysisBtn').classList.add('active');
         renderBranchNetSubscribersChart(currentBranchData);
-        // The table population for Net Subscribers is now handled inside renderBranchNetSubscribersChart
-        // populateNetSubscribersDetailTable(currentBranchData); // This line is no longer needed here
     } else if (sectionType === 'dailyNewSubscribers') { // New section
-        document.getElementById('branchDailyNewSubscribersSection').style.display = 'block';
+        document.getElementById('branchDailyNewSubscribersSection').classList.remove('hidden');
         document.getElementById('showDailyNewSubscribersBtn').classList.add('active');
         renderBranchDailyNewSubscribersChart(currentBranchData);
     } else if (sectionType === 'dailyTerminationSubscribers') { // New section
-        document.getElementById('branchDailyTerminationSubscribersSection').style.display = 'block';
+        document.getElementById('branchDailyTerminationSubscribersSection').classList.remove('hidden');
         document.getElementById('showDailyTerminationSubscribersBtn').classList.add('active');
         renderBranchDailyTerminationChart(currentBranchData);
     }
@@ -855,13 +959,16 @@ function populateBranchCustomerFilters(data) {
         return;
     }
 
+    // Store current selections to reapply after repopulating
+    const currentSelectedStatus = statusFilter.value;
+    const currentSelectedSalesCode = salesCodeFilter.value;
+
     // Clear existing options
     statusFilter.innerHTML = '<option value="">All Statuses</option>';
     salesCodeFilter.innerHTML = '<option value="">All Sales Codes</option>';
 
     // Get unique statuses and sales codes from the current branch data
     const statuses = [...new Set(data.map(c => c.STATUS).filter(Boolean))].sort();
-    // Ensure SALESCODE is used here
     const salesCodes = [...new Set(data.map(c => c.SALESCODE).filter(Boolean))].sort();
 
     statuses.forEach(status => {
@@ -877,6 +984,14 @@ function populateBranchCustomerFilters(data) {
         option.textContent = code;
         salesCodeFilter.appendChild(option);
     });
+
+    // Reapply previous selections if they still exist in the new options
+    if (currentSelectedStatus && statuses.includes(currentSelectedStatus)) {
+        statusFilter.value = currentSelectedStatus;
+    }
+    if (currentSelectedSalesCode && salesCodes.includes(currentSelectedSalesCode)) {
+        salesCodeFilter.value = currentSelectedSalesCode;
+    }
 }
 
 /**
@@ -902,12 +1017,12 @@ function applyBranchCustomerFilters() {
         const matchesSearch = !searchInput || 
                               (customer.BP_FULLNAME && customer.BP_FULLNAME.toLowerCase().includes(searchInput)) ||
                               customerEmail.includes(searchInput) ||
-                              (customer.BUSINESSPARTNERID && customer.BUSINESSPARTNERID.toLowerCase().includes(searchInput)) ||
+                              (customer.BUSINESSPARTNERID && String(customer.BUSINESSPARTNERID).toLowerCase().includes(searchInput)) ||
                               customerPhone.includes(searchInput) || 
                               customerAddress.includes(searchInput);
         
-        const matchesStatus = statusFilter ? (customer.STATUS && customer.STATUS === statusFilter) : true;
-        const matchesSalesCode = salesCodeFilter ? (customer.SALESCODE && String(customer.SALESCODE) === salesCodeFilter) : true;
+        const matchesStatus = statusFilter ? (customer.STATUS === statusFilter) : true;
+        const matchesSalesCode = salesCodeFilter ? (customer.SALESCODE === salesCodeFilter) : true;
 
         return matchesSearch && matchesStatus && matchesSalesCode;
     });
@@ -954,8 +1069,10 @@ function displayBranchCustomers(data) {
     const end = start + branchCustomerRowsPerPage;
     const paginatedData = data.slice(start, end);
 
+    console.log('Displaying paginated branch customer data:', paginatedData);
+
     if (paginatedData.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">Tidak ada data pelanggan yang cocok dengan filter.</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="10" class="text-center text-muted">Tidak ada data pelanggan yang cocok dengan filter.</td></tr>';
         return;
     }
 
@@ -963,8 +1080,8 @@ function displayBranchCustomers(data) {
         const row = tableBody.insertRow();
         row.insertCell().textContent = customer.BUSINESSPARTNERID || '-';
         row.insertCell().textContent = customer.BP_FULLNAME || '-';
-        row.insertCell().textContent = customer.BP_EMAIL || '-'; // Changed from customer.EMAIL to customer.BP_EMAIL
-        row.insertCell().textContent = customer.BP_PHONE ? String(customer.BP_PHONE).replace(/,(\d+)$/, '.$1') : '-';
+        row.insertCell().textContent = customer.BP_EMAIL || '-';
+        row.insertCell().textContent = customer.BP_PHONE || '-';
         row.insertCell().textContent = customer.SALESCODE || '-';
         row.insertCell().textContent = customer.CONTRACTACCOUNT || '-';
         
@@ -974,17 +1091,22 @@ function displayBranchCustomers(data) {
             customer.INSTALLATION_ADDRESS2,
             customer.INSTALLATION_ADDRESS3,
             customer.INSTALLATION_ADDRESS4
-        ].filter(Boolean).join(', '); // Filter(Boolean) removes null/undefined/empty strings
-        row.insertCell().textContent = fullAddress || '-'; // Display combined address
+        ].filter(Boolean).join(', ');
+        row.insertCell().textContent = fullAddress || '-';
         
         row.insertCell().textContent = customer.STATUS || '-';
         
         // Logic for Modem Status
         let modemStatus = customer.MODEM_STATUS || '-';
-        if (customer.PROMO_CODE && (customer.PROMO_CODE.toUpperCase() === 'MODEMPROMO25' || customer.PROMO_CODE.toUpperCase() === 'MODEMWIFIPROMO')) {
-            modemStatus = 'modem Second/dipinjamkan';
+        if (customer.PROMO_CODE && (customer.PROMO_CODE === 'MODEMPROMO25' || customer.PROMO_CODE === 'MODEMWIFIPROMO')) {
+            modemStatus = 'DIPINJAMKAN';
         }
         row.insertCell().textContent = modemStatus;
+
+        // Calculate Subscription Duration for Customer List
+        const endDateForDuration = customer.TERMDATE instanceof Date ? customer.TERMDATE : (customer.STATUS === 'ACTIVE' ? new Date() : null);
+        const subscriptionDuration = calculateDuration(customer.CONTRACTSTARTDATE, endDateForDuration);
+        row.insertCell().textContent = subscriptionDuration;
     });
 }
 
@@ -1002,37 +1124,21 @@ function changeBranchCustomerPage(delta) {
 }
 
 /**
- * Populates the "Customer Status per Sales Code" table for the current branch.
+ * Populates the "Customer Status per Sales Code" overall table for the current branch.
  * @param {Array<Object>} data - The data for the current branch.
  */
-function populateBranchSalesCodeStatusTable(data) {
-    const tableBody = document.querySelector('#branchSalesCodeStatusTable tbody');
+function populateBranchSalesCodeStatusOverallTable(data) {
+    const tableBody = document.querySelector('#salesCodeStatusOverallTable tbody');
     if (!tableBody) {
-        console.warn('Branch Sales Code Status table body not found.');
+        console.warn('Sales Code Status Overall table body not found.');
         return;
     }
     tableBody.innerHTML = '';
 
-    const selectedYear = document.getElementById('salesCodeYearFilter')?.value;
-    const selectedMonth = document.getElementById('salesCodeMonthFilter')?.value;
-
-    let filteredData = data;
-    if (selectedYear || selectedMonth) {
-        filteredData = data.filter(customer => {
-            const contractDate = customer.CONTRACTSTARTDATE; // Assuming status is tied to contract start date
-            if (!contractDate) return false;
-
-            const yearMatch = selectedYear ? contractDate.getFullYear().toString() === selectedYear : true;
-            // Month is 0-indexed in Date object, but 1-12 for select option values
-            const monthMatch = selectedMonth ? (contractDate.getMonth() + 1).toString() === selectedMonth : true;
-            return yearMatch && monthMatch;
-        });
-    }
-
     const salesCodeMap = {};
-    filteredData.forEach(customer => {
+    data.forEach(customer => {
         const salesCode = customer.SALESCODE || 'Unknown';
-        const status = customer.STATUS ? customer.STATUS.toUpperCase() : 'UNKNOWN';
+        const status = customer.STATUS || 'UNKNOWN';
 
         if (!salesCodeMap[salesCode]) {
             salesCodeMap[salesCode] = { Active: 0, Suspended: 0, Terminated: 0, Total: 0 };
@@ -1054,7 +1160,7 @@ function populateBranchSalesCodeStatusTable(data) {
     }));
 
     if (salesCodeStatusData.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Tidak ada data Sales Code untuk cabang ini dengan filter yang dipilih.</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Tidak ada data Sales Code keseluruhan untuk cabang ini.</td></tr>';
         return;
     }
 
@@ -1076,29 +1182,37 @@ function renderBranchBundleNameChart(data) {
     const selectedYear = document.getElementById('bundleNameYearFilter')?.value;
     const selectedMonth = document.getElementById('bundleNameMonthFilter')?.value;
 
+    console.log(`[Bundle Name Chart] Filter Tahun: ${selectedYear}, Filter Bulan: ${selectedMonth}`);
+
     let filteredData = data;
     if (selectedYear || selectedMonth) {
         filteredData = data.filter(customer => {
-            const contractDate = customer.CONTRACTSTARTDATE; // Assuming bundle name is tied to contract start date
+            const contractDate = customer.CONTRACTSTARTDATE;
             if (!contractDate) return false;
 
             const yearMatch = selectedYear ? contractDate.getFullYear().toString() === selectedYear : true;
-            const monthMatch = selectedMonth ? (contractDate.getMonth() + 1).toString() === selectedMonth : true;
+            const monthMatch = selectedMonth ? (contractDate.getMonth() + 1).toString().padStart(2, '0') === selectedMonth : true; // Added padStart for consistency
             return yearMatch && monthMatch;
         });
     }
+    console.log(`[Bundle Name Chart] Jumlah data setelah filter: ${filteredData.length}`);
 
     const bundleNameCounts = {};
     filteredData.forEach(c => {
         const bundleName = c.BUNDLE_NAME || 'Unknown';
         bundleNameCounts[bundleName] = (bundleNameCounts[bundleName] || 0) + 1;
     });
+    console.log('[Bundle Name Chart] Hasil perhitungan bundleNameCounts:', bundleNameCounts);
+
 
     const sortedBundleNames = Object.entries(bundleNameCounts)
         .sort(([,a], [,b]) => b - a);
 
     const labels = sortedBundleNames.map(item => item[0]);
     const chartData = sortedBundleNames.map(item => item[1]);
+    console.log('[Bundle Name Chart] Labels untuk grafik:', labels);
+    console.log('[Bundle Name Chart] Data untuk grafik:', chartData);
+
 
     const ctx = document.getElementById('branchBundleNameChart');
     if (!ctx) {
@@ -1107,9 +1221,7 @@ function renderBranchBundleNameChart(data) {
     }
     const chartCtx = ctx.getContext('2d');
 
-    // Destroy existing chart instance if it exists
     if (branchBundleNameChart) branchBundleNameChart.destroy();
-
     branchBundleNameChart = new Chart(chartCtx, {
         type: 'bar',
         data: {
@@ -1124,7 +1236,7 @@ function renderBranchBundleNameChart(data) {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: false, // Allow chart-container to control height
             plugins: {
                 legend: {
                     display: false
@@ -1132,7 +1244,7 @@ function renderBranchBundleNameChart(data) {
                 title: {
                     display: false
                 },
-                datalabels: { // Konfigurasi datalabels
+                datalabels: { // Datalabels configuration
                     color: '#ffffff',
                     anchor: 'end',
                     align: 'end',
@@ -1180,30 +1292,41 @@ function renderBranchModemStatusChart(data) {
     const selectedYear = document.getElementById('modemStatusYearFilter')?.value;
     const selectedMonth = document.getElementById('modemStatusMonthFilter')?.value;
 
+    console.log(`[Modem Status Chart] Filter Tahun: ${selectedYear}, Filter Bulan: ${selectedMonth}`);
+
     let filteredData = data;
     if (selectedYear || selectedMonth) {
         filteredData = data.filter(customer => {
-            const contractDate = customer.CONTRACTSTARTDATE; // Assuming modem status is tied to contract start date
-            if (!contractDate) return false;
+            const contractDate = customer.CONTRACTSTARTDATE;
+            // For modem status, we are interested in the status at the time of contract start.
+            // If CONTRACTSTARTDATE is not available, we can't filter by it.
+            if (!contractDate) return false; 
 
             const yearMatch = selectedYear ? contractDate.getFullYear().toString() === selectedYear : true;
-            const monthMatch = selectedMonth ? (contractDate.getMonth() + 1).toString() === selectedMonth : true;
+            const monthMatch = selectedMonth ? (contractDate.getMonth() + 1).toString().padStart(2, '0') === selectedMonth : true;
             return yearMatch && monthMatch;
         });
     }
+    console.log(`[Modem Status Chart] Jumlah data setelah filter: ${filteredData.length}`);
+
 
     const modemStatusCounts = {};
     filteredData.forEach(c => {
         let status = c.MODEM_STATUS || 'TIDAK DIKETAHUI';
         // Apply special logic for promo codes
-        if (c.PROMO_CODE && (c.PROMO_CODE.toUpperCase() === 'MODEMPROMO25' || c.PROMO_CODE.toUpperCase() === 'MODEMWIFIPROMO')) {
+        if (c.PROMO_CODE && (c.PROMO_CODE === 'MODEMPROMO25' || c.PROMO_CODE === 'MODEMWIFIPROMO')) {
             status = 'MODEM DIPINJAMKAN';
         }
         modemStatusCounts[status] = (modemStatusCounts[status] || 0) + 1;
     });
+    console.log('[Modem Status Chart] Hasil perhitungan modemStatusCounts:', modemStatusCounts);
+
 
     const labels = Object.keys(modemStatusCounts);
     const chartData = Object.values(modemStatusCounts);
+    console.log('[Modem Status Chart] Labels untuk grafik:', labels);
+    console.log('[Modem Status Chart] Data untuk grafik:', chartData);
+
 
     const ctx = document.getElementById('branchModemStatusChart');
     if (!ctx) {
@@ -1237,7 +1360,7 @@ function renderBranchModemStatusChart(data) {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: false, // Allow chart-container to control height
             plugins: {
                 legend: {
                     position: 'right', // Place legend on the right
@@ -1267,7 +1390,67 @@ function renderBranchModemStatusChart(data) {
         }
     });
     console.log('Branch Modem Status Chart Rendered.');
+
+    // Add click event listener to the chart
+    ctx.onclick = function(evt) {
+        const points = branchModemStatusChart.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
+        if (points.length) {
+            const firstPoint = points[0];
+            const clickedStatus = branchModemStatusChart.data.labels[firstPoint.index];
+            console.log(`Modem Status Chart clicked: Status ${clickedStatus}, Year: ${selectedYear}, Month: ${selectedMonth}`);
+
+            displayModemStatusDetail(filteredData, selectedYear, selectedMonth, clickedStatus);
+        } else {
+            // If no segment is clicked, clear the table
+            const tableBody = document.querySelector('#modemStatusDetailTable tbody');
+            if (tableBody) {
+                tableBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Klik bagian donat untuk melihat detail pelanggan.</td></tr>';
+            }
+        }
+    };
 }
+
+/**
+ * Displays detailed modem status data in the table.
+ * @param {Array<Object>} filteredChartData - The data used to render the chart (already filtered by month/year).
+ * @param {string} selectedYear - The selected year from the filter.
+ * @param {string} selectedMonth - The selected month from the filter.
+ * @param {string} clickedStatus - The modem status clicked on the chart.
+ */
+function displayModemStatusDetail(filteredChartData, selectedYear, selectedMonth, clickedStatus) {
+    const tableBody = document.querySelector('#modemStatusDetailTable tbody');
+    if (!tableBody) {
+        console.warn('Modem Status Detail table body not found for detail display.');
+        return;
+    }
+    tableBody.innerHTML = ''; // Clear existing rows
+
+    const customersForClickedStatus = filteredChartData.filter(customer => {
+        let customerModemStatus = customer.MODEM_STATUS || 'TIDAK DIKETAHUI';
+        if (customer.PROMO_CODE && (customer.PROMO_CODE === 'MODEMPROMO25' || customer.PROMO_CODE === 'MODEMWIFIPROMO')) {
+            customerModemStatus = 'MODEM DIPINJAMKAN';
+        }
+        return customerModemStatus === clickedStatus;
+    });
+
+    console.log(`Found ${customersForClickedStatus.length} customers for status ${clickedStatus} in ${selectedMonth}/${selectedYear}.`);
+
+    if (customersForClickedStatus.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-muted">Tidak ada pelanggan dengan status modem ${clickedStatus} pada bulan ${selectedMonth}/${selectedYear}.</td></tr>`;
+        return;
+    }
+
+    customersForClickedStatus.forEach(customer => {
+        const row = tableBody.insertRow();
+        row.insertCell().textContent = customer.CONTRACTSTARTDATE ? customer.CONTRACTSTARTDATE.toLocaleDateString('id-ID') : '-';
+        row.insertCell().textContent = customer.BP_FULLNAME || '-';
+        row.insertCell().textContent = customer.BUSINESSPARTNERID || '-';
+        row.insertCell().textContent = customer.SALESCODE || '-';
+        row.insertCell().textContent = customer.MODEM_STATUS || '-'; // Original modem status
+        row.insertCell().textContent = customer.PROMO_CODE || '-'; // Promo code
+    });
+}
+
 
 /**
  * Renders the "Analisis Net Subscribers per Bulan (Customer Baru, Suspend & Terminated)" chart for the current branch.
@@ -1285,7 +1468,7 @@ function renderBranchNetSubscribersChart(data) {
 
             let dateToCheck = null;
             // Prioritize termDate for terminated customers, otherwise use contractDate
-            if (customer.STATUS && customer.STATUS.toUpperCase() === 'TERMINATED' && termDate instanceof Date) {
+            if (customer.STATUS === 'TERMINATED' && termDate instanceof Date) {
                 dateToCheck = termDate;
             } else if (contractDate instanceof Date) {
                 dateToCheck = contractDate;
@@ -1294,7 +1477,7 @@ function renderBranchNetSubscribersChart(data) {
             if (!dateToCheck) return false;
 
             const yearMatch = selectedYear ? dateToCheck.getFullYear().toString() === selectedYear : true;
-            const monthMatch = selectedMonth ? (dateToCheck.getMonth() + 1).toString() === selectedMonth : true;
+            const monthMatch = selectedMonth ? (dateToCheck.getMonth() + 1).toString().padStart(2, '0') === selectedMonth : true;
             return yearMatch && monthMatch;
         });
     }
@@ -1309,12 +1492,20 @@ function renderBranchNetSubscribersChart(data) {
         if (c.CONTRACTSTARTDATE instanceof Date) {
             monthKeyForNew = `${c.CONTRACTSTARTDATE.getFullYear()}-${(c.CONTRACTSTARTDATE.getMonth() + 1).toString().padStart(2, '0')}`;
         }
-        if (c.TERMDATE instanceof Date && c.STATUS && c.STATUS.toUpperCase() === 'TERMINATED') {
+        if (c.TERMDATE instanceof Date && c.STATUS === 'TERMINATED') {
             monthKeyForTerminated = `${c.TERMDATE.getFullYear()}-${(c.TERMDATE.getMonth() + 1).toString().padStart(2, '0')}`;
         }
-        // Assuming suspended status is also tied to contract start date for monthly aggregation
-        if (c.STATUS && c.STATUS.toUpperCase() === 'SUSPENDED' && c.CONTRACTSTARTDATE instanceof Date) {
-            monthKeyForSuspended = `${c.CONTRACTSTARTDATE.getFullYear()}-${(c.CONTRACTSTARTDATE.getMonth() + 1).toString().padStart(2, '0')}`;
+        // Suspended for Net Subscribers Chart: EXPIREDDATE in the current month
+        if (c.EXPIREDDATE instanceof Date) {
+            const expiredDate = new Date(c.EXPIREDDATE);
+            const today = latestAvailableDataDate ? new Date(latestAvailableDataDate) : new Date();
+            today.setHours(0, 0, 0, 0);
+            const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+            startOfMonth.setHours(0, 0, 0, 0);
+
+            if (expiredDate >= startOfMonth && expiredDate <= today) {
+                monthKeyForSuspended = `${expiredDate.getFullYear()}-${(expiredDate.getMonth() + 1).toString().padStart(2, '0')}`;
+            }
         }
 
         // Collect all unique month keys involved in this customer's lifecycle
@@ -1403,7 +1594,7 @@ function renderBranchNetSubscribersChart(data) {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: false, // Allow chart-container to control height
             plugins: {
                 legend: {
                     position: 'top',
@@ -1522,7 +1713,7 @@ function renderBranchDailyNewSubscribersChart(data) {
         if (!contractDate) return false;
 
         const yearMatch = selectedYear ? contractDate.getFullYear().toString() === selectedYear : true;
-        const monthMatch = selectedMonth ? (contractDate.getMonth() + 1).toString() === selectedMonth : true;
+        const monthMatch = selectedMonth ? (contractDate.getMonth() + 1).toString().padStart(2, '0') === selectedMonth : true;
         
         return yearMatch && monthMatch;
     });
@@ -1535,10 +1726,10 @@ function renderBranchDailyNewSubscribersChart(data) {
 
     const dailyCounts = {}; // { 'YYYY-MM-DD': count }
     dailyNewSubscribers.forEach(c => {
-        // Normalisasi CONTRACTSTARTDATE ke awal hari untuk kunci
+        // Normalize CONTRACTSTARTDATE to start of day for key
         const normalizedDate = new Date(c.CONTRACTSTARTDATE);
         normalizedDate.setHours(0, 0, 0, 0);
-        // Menggunakan toLocaleDateString('en-CA') untuk format YYYY-MM-DD
+        // Use toLocaleDateString('en-CA') for ISO-MM-DD format
         const dateKey = normalizedDate.toLocaleDateString('en-CA'); 
         dailyCounts[dateKey] = (dailyCounts[dateKey] || 0) + 1;
     });
@@ -1554,7 +1745,7 @@ function renderBranchDailyNewSubscribersChart(data) {
     for (let i = 1; i <= daysInMonth; i++) {
         const day = i.toString().padStart(2, '0');
         const monthStr = month.toString().padStart(2, '0');
-        // Kunci untuk mencari data di dailyCounts harus sesuai dengan format toLocaleDateString('en-CA')
+        // Key to look up data in dailyCounts must match ISO-MM-DD format
         const dateKey = `${year}-${monthStr}-${day}`; 
         labels.push(i); // Just the day number for x-axis
         chartData.push(dailyCounts[dateKey] || 0);
@@ -1584,7 +1775,7 @@ function renderBranchDailyNewSubscribersChart(data) {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: false, // Allow chart-container to control height
             plugins: {
                 legend: {
                     display: false
@@ -1660,7 +1851,6 @@ function renderBranchDailyNewSubscribersChart(data) {
 
             displayDailyNewSubscribersDetail(dailyNewSubscribers, selectedYear, selectedMonth, clickedDay);
         } else {
-            // If no bar is clicked, clear the table
             if (tableBody) {
                 tableBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Klik bar pada grafik untuk melihat detail pelanggan baru harian.</td></tr>';
             }
@@ -1684,24 +1874,20 @@ function displayDailyNewSubscribersDetail(dailyNewSubscribersData, selectedYear,
     tableBody.innerHTML = ''; // Clear existing rows
 
     // Construct the target date for comparison, ensuring consistency (midnight UTC or local, depending on data)
-    // Menggunakan waktu lokal untuk mencocokkan data dan ekspektasi pengguna
     const targetDate = new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1, clickedDay);
-    targetDate.setHours(0, 0, 0, 0); // Normalisasi tanggal target ke awal hari
-    // Menggunakan toLocaleDateString('en-CA') untuk format YYYY-MM-DD yang konsisten
-    const targetDateString = targetDate.toLocaleDateString('en-CA');
-    console.log(`displayDailyNewSubscribersDetail: Target Date String for filter: ${targetDateString}`); 
+    targetDate.setHours(0, 0, 0, 0); // Normalize target date to start of day
+    const targetDateString = targetDate.toLocaleDateString('en-CA'); // Use toLocaleDateString('en-CA') for consistent ISO-MM-DD format
 
     const customersForClickedDay = dailyNewSubscribersData.filter(customer => {
         if (!customer.CONTRACTSTARTDATE) {
             console.log('Skipping customer due to missing CONTRACTSTARTDATE');
             return false;
         }
-        // Normalisasi tanggal pelanggan ke awal hari dan dapatkan string YYYY-MM-DD
+        // Normalize customer date to start of day and get ISO-MM-DD string
         const customerDate = new Date(customer.CONTRACTSTARTDATE);
         customerDate.setHours(0, 0, 0, 0); 
         const customerDateString = customerDate.toLocaleDateString('en-CA');
         
-        console.log(`Comparing Customer Date String: ${customerDateString} with Target Date String: ${targetDateString}. Match: ${customerDateString === targetDateString}`);
         return customerDateString === targetDateString;
     });
 
@@ -1739,7 +1925,7 @@ function renderBranchDailyTerminationChart(data) {
 
         // Include customers with TERMDATE or EXPIREDDATE within the selected month/year
         const yearMatch = selectedYear ? (termDate && termDate.getFullYear().toString() === selectedYear) || (expiredDate && expiredDate.getFullYear().toString() === selectedYear) : true;
-        const monthMatch = selectedMonth ? (termDate && (termDate.getMonth() + 1).toString() === selectedMonth) || (expiredDate && (expiredDate.getMonth() + 1).toString() === selectedMonth) : true;
+        const monthMatch = selectedMonth ? (termDate && (termDate.getMonth() + 1).toString().padStart(2, '0') === selectedMonth) || (expiredDate && (expiredDate.getMonth() + 1).toString().padStart(2, '0') === selectedMonth) : true;
         
         return yearMatch && monthMatch;
     });
@@ -1749,14 +1935,14 @@ function renderBranchDailyTerminationChart(data) {
 
     filteredData.forEach(c => {
         // Actual terminations
-        if (c.STATUS && c.STATUS.toUpperCase() === 'TERMINATED' && c.TERMDATE instanceof Date) {
+        if (c.STATUS === 'TERMINATED' && c.TERMDATE instanceof Date) {
             const normalizedDate = new Date(c.TERMDATE);
             normalizedDate.setHours(0, 0, 0, 0);
             const dateKey = normalizedDate.toLocaleDateString('en-CA');
             dailyTerminationCounts[dateKey] = (dailyTerminationCounts[dateKey] || 0) + 1;
         }
         // Forecast terminations (based on EXPIREDDATE for non-terminated active/suspended customers)
-        else if (c.EXPIREDDATE instanceof Date && c.STATUS && (c.STATUS.toUpperCase() === 'ACTIVE' || c.STATUS.toUpperCase() === 'SUSPENDED')) {
+        else if (c.EXPIREDDATE instanceof Date && (c.STATUS === 'ACTIVE' || c.STATUS === 'SUSPENDED')) {
             const normalizedDate = new Date(c.EXPIREDDATE);
             normalizedDate.setHours(0, 0, 0, 0);
             const dateKey = normalizedDate.toLocaleDateString('en-CA');
@@ -1826,7 +2012,7 @@ function renderBranchDailyTerminationChart(data) {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: false, // Allow chart-container to control height
             plugins: {
                 legend: {
                     position: 'top',
@@ -1912,6 +2098,7 @@ function renderBranchDailyTerminationChart(data) {
     };
 }
 
+
 /**
  * Displays detailed daily termination subscribers data in the table.
  * @param {Array<Object>} allFilteredData - All filtered data for the selected month/year (includes active, suspended, terminated).
@@ -1930,19 +2117,14 @@ function displayDailyTerminationSubscribersDetail(allFilteredData, selectedYear,
     const targetDate = new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1, clickedDay);
     targetDate.setHours(0, 0, 0, 0);
     const targetDateString = targetDate.toLocaleDateString('en-CA');
-    console.log(`displayDailyTerminationSubscribersDetail: Target Date String for filter: ${targetDateString}`);
 
     const customersForClickedDay = allFilteredData.filter(customer => {
         let customerDate = null;
-        let isTermination = false;
-        let isForecast = false;
 
-        if (customer.STATUS && customer.STATUS.toUpperCase() === 'TERMINATED' && customer.TERMDATE instanceof Date) {
+        if (customer.STATUS === 'TERMINATED' && customer.TERMDATE instanceof Date) {
             customerDate = new Date(customer.TERMDATE);
-            isTermination = true;
-        } else if (customer.EXPIREDDATE instanceof Date && (customer.STATUS.toUpperCase() === 'ACTIVE' || customer.STATUS.toUpperCase() === 'SUSPENDED')) {
+        } else if (customer.EXPIREDDATE instanceof Date && (customer.STATUS === 'ACTIVE' || customer.STATUS === 'SUSPENDED')) {
             customerDate = new Date(customer.EXPIREDDATE);
-            isForecast = true;
         }
 
         if (!customerDate) return false;
@@ -1977,13 +2159,14 @@ function displayDailyTerminationSubscribersDetail(allFilteredData, selectedYear,
  * @param {string} yearSelectId - The ID of the year select element.
  * @param {string} monthSelectId - The ID of the month select element.
  * @param {Array<Object>} data - The data to extract years and months from.
+ * @param {string} dateField - The field name in the customer object to use for date filtering (e.g., 'CONTRACTSTARTDATE', 'TERMDATE').
  */
-function populateYearMonthFilters(yearSelectId, monthSelectId, data) {
+function populateYearMonthFilters(yearSelectId, monthSelectId, data, dateField = 'CONTRACTSTARTDATE') {
     const yearSelect = document.getElementById(yearSelectId);
     const monthSelect = document.getElementById(monthSelectId);
 
     if (!yearSelect || !monthSelect) {
-        console.warn(`Year/Month filter elements with IDs ${yearSelectId} atau ${monthSelectId} tidak ditemukan.`);
+        console.warn(`Year/Month filter elements with IDs ${yearSelectId} or ${monthSelectId} not found.`);
         return;
     }
 
@@ -1998,20 +2181,10 @@ function populateYearMonthFilters(yearSelectId, monthSelectId, data) {
     const months = new Set();
 
     data.forEach(customer => {
-        // Use CONTRACTSTARTDATE for year/month filtering as it's common for new registrations/status changes
-        if (customer.CONTRACTSTARTDATE instanceof Date) {
-            years.add(customer.CONTRACTSTARTDATE.getFullYear());
-            months.add(customer.CONTRACTSTARTDATE.getMonth() + 1); // Month is 0-indexed, so add 1
-        }
-        // Also consider TERMDATE for Net Subscribers analysis and Termination analysis
-        if (customer.TERMDATE instanceof Date) {
-            years.add(customer.TERMDATE.getFullYear());
-            months.add(customer.TERMDATE.getMonth() + 1);
-        }
-        // Also consider EXPIREDDATE for Termination Forecast
-        if (customer.EXPIREDDATE instanceof Date) {
-            years.add(customer.EXPIREDDATE.getFullYear());
-            months.add(customer.EXPIREDDATE.getMonth() + 1);
+        const date = customer[dateField];
+        if (date instanceof Date) {
+            years.add(date.getFullYear());
+            months.add(date.getMonth() + 1); // Month is 0-indexed, so add 1
         }
     });
 
@@ -2022,11 +2195,11 @@ function populateYearMonthFilters(yearSelectId, monthSelectId, data) {
         yearSelect.appendChild(option);
     });
 
-    const monthNames = ["January", "February", "March", "April", "May", "June",
-                        "July", "August", "September", "October", "November", "December"];
+    const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni",
+                        "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
     [...months].sort((a, b) => a - b).forEach(monthNum => { // Sort ascending for months
         const option = document.createElement('option');
-        option.value = monthNum;
+        option.value = monthNum.toString().padStart(2, '0'); // Ensure month is '01', '02' etc.
         option.textContent = monthNames[monthNum - 1]; // Adjust for 0-indexed array
         monthSelect.appendChild(option);
     });
@@ -2037,12 +2210,21 @@ function populateYearMonthFilters(yearSelectId, monthSelectId, data) {
     }
     if (currentSelectedMonth && [...months].includes(parseInt(currentSelectedMonth))) {
         monthSelect.value = currentSelectedMonth;
+    } else {
+        // If no month was previously selected or the month is no longer available,
+        // set to the current month if available, or "All Months"
+        const currentMonthNum = new Date().getMonth() + 1;
+        if ([...months].includes(currentMonthNum)) {
+            monthSelect.value = currentMonthNum.toString().padStart(2, '0');
+        } else {
+            monthSelect.value = ""; // Default to "All Months"
+        }
     }
 }
 
 /**
- * Displays an inline section with a list of terminated customers for a specific branch.
- * @param {string} branchName - The name of the branch.
+ * Displays an inline section with a list of terminated customers for a specific branch or all branches.
+ * @param {string} branchName - The name of the branch to filter by, or 'All Branches' for no branch filter.
  */
 function displayInlineTerminatedCustomers(branchName) {
     const inlineSection = document.getElementById('inlineTerminatedCustomersSection');
@@ -2050,11 +2232,11 @@ function displayInlineTerminatedCustomers(branchName) {
     const tableBody = document.querySelector('#inlineTerminatedCustomersTable tbody');
 
     if (!inlineSection || !sectionTitle || !tableBody) {
-        console.error('Inline terminated customers section elements not found.');
+        console.error('Inline terminated customers section elements not found. Skipping display.');
         return;
     }
 
-    sectionTitle.textContent = `Terminated Customers for ${branchName}`;
+    sectionTitle.textContent = `Detail Pelanggan Terminasi untuk ${branchName}`;
     tableBody.innerHTML = ''; // Clear previous data
 
     const today = latestAvailableDataDate ? new Date(latestAvailableDataDate) : new Date();
@@ -2062,27 +2244,48 @@ function displayInlineTerminatedCustomers(branchName) {
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     startOfMonth.setHours(0, 0, 0, 0);
 
-    const terminatedCustomers = allCustomerData.filter(customer => 
-        customer.BRANCH_FROM_SALESCODE === branchName &&
-        customer.STATUS && customer.STATUS.toUpperCase() === 'TERMINATED' &&
+    let terminatedCustomers = allCustomerData.filter(customer => 
+        customer.STATUS === 'TERMINATED' &&
         customer.TERMDATE && customer.TERMDATE instanceof Date &&
         customer.TERMDATE >= startOfMonth && customer.TERMDATE <= today
     );
 
+    if (branchName !== 'All Branches') {
+        terminatedCustomers = terminatedCustomers.filter(customer => 
+            customer.BRANCH_FROM_SALESCODE === branchName
+        );
+    }
+
+    console.log(`Terminated Customers for display (${branchName}):`, terminatedCustomers);
+
+
     if (terminatedCustomers.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Tidak ada pelanggan TERMINATED untuk cabang ini di bulan ini.</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Tidak ada pelanggan TERMINATED untuk filter yang dipilih di bulan ini.</td></tr>';
     } else {
         terminatedCustomers.forEach(customer => {
             const row = tableBody.insertRow();
             row.insertCell().textContent = customer.BP_FULLNAME || '-';
             row.insertCell().textContent = customer.BUSINESSPARTNERID || '-';
-            row.insertCell().textContent = customer.BP_PHONE ? String(customer.BP_PHONE).replace(/,(\d+)$/, '.$1') : '-'; 
+            row.insertCell().textContent = customer.BP_PHONE || '-'; 
             row.insertCell().textContent = customer.TERMDATE ? customer.TERMDATE.toLocaleDateString('id-ID') : '-';
+            
+            // Calculate Subscription Duration
+            const subscriptionDuration = calculateDuration(customer.CONTRACTSTARTDATE, customer.TERMDATE);
+            row.insertCell().textContent = subscriptionDuration;
+
+            // Determine Modem Status
+            let modemStatus = customer.MODEM_STATUS || '-';
+            if (customer.PROMO_CODE && (customer.PROMO_CODE === 'MODEMPROMO25' || customer.PROMO_CODE === 'MODEMWIFIPROMO')) {
+                modemStatus = 'DIPINJAMKAN';
+            }
+            row.insertCell().textContent = modemStatus;
+
+            row.insertCell().textContent = customer.CONTRACTACCOUNT || '-';
         });
     }
 
     inlineSection.classList.remove('hidden');
-    inlineSection.scrollIntoView({ behavior: 'smooth', block: 'start' }); // Scroll to the new section
+    inlineSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 /**
@@ -2094,127 +2297,3 @@ function hideInlineTerminatedCustomers() {
         inlineSection.classList.add('hidden');
     }
 }
-
-// Helper function to render charts (reused from previous versions)
-function renderChart(chartId, type, labels, data, chartTitle) {
-    const ctx = document.getElementById(chartId);
-    if (!ctx) {
-        console.warn(`Canvas element with ID '${chartId}' not found.`);
-        return;
-    }
-    const chartCtx = ctx.getContext('2d');
-    
-    const backgroundColors = [
-        'rgba(0, 123, 255, 0.7)', // Biznet Blue
-        'rgba(40, 167, 69, 0.7)',  // Green (Success)
-        'rgba(255, 193, 7, 0.7)',  // Yellow (Warning)
-        'rgba(220, 53, 69, 0.7)',  // Red (Danger)
-        'rgba(108, 117, 125, 0.7)', // Grey
-        'rgba(23, 162, 184, 0.7)', // Cyan
-        'rgba(102, 16, 242, 0.7)', // Indigo
-        'rgba(111, 66, 193, 0.7)', // Purple
-        'rgba(232, 62, 140, 0.7)', // Pink
-        'rgba(253, 126, 20, 0.7)'  // Orange
-    ];
-    const borderColors = [
-        'rgba(0, 123, 255, 1)',
-        'rgba(40, 167, 69, 1)',
-        'rgba(255, 193, 7, 1)',
-        'rgba(220, 53, 69, 1)',
-        'rgba(108, 117, 125, 1)',
-        'rgba(23, 162, 184, 1)',
-        'rgba(102, 16, 242, 1)',
-        'rgba(111, 66, 193, 1)',
-        'rgba(232, 62, 140, 1)',
-        'rgba(253, 126, 20, 1)'
-    ];
-
-    const chartConfig = {
-        type: type,
-        data: {
-            labels: labels,
-            datasets: [{
-                label: chartTitle,
-                data: data,
-                backgroundColor: type === 'line' ? 'rgba(0, 123, 255, 0.2)' : backgroundColors.slice(0, labels.length),
-                borderColor: type === 'line' ? 'rgba(0, 123, 255, 1)' : borderColors.slice(0, labels.length),
-                borderWidth: 1,
-                fill: type === 'line' ? true : false,
-                tension: type === 'line' ? 0.4 : 0
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: type === 'doughnut' ? 'right' : 'top',
-                    labels: {
-                        font: {
-                            size: 10
-                        }
-                    }
-                },
-                title: {
-                    display: false
-                },
-                datalabels: { // Konfigurasi datalabels untuk helper function
-                    color: '#ffffff',
-                    anchor: 'end',
-                    align: 'end',
-                    formatter: function(value, context) {
-                        return value;
-                    },
-                    font: {
-                        weight: 'bold',
-                        size: 10
-                    }
-                }
-            },
-            scales: type === 'bar' || type === 'line' ? {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        callback: function(value) { if (value % 1 === 0) return value; },
-                        font: {
-                            size: 10
-                        }
-                    }
-                },
-                x: {
-                    ticks: {
-                        font: {
-                            size: 10
-                        }
-                    }
-                }
-            } : {}
-        }
-    };
-
-    // Destroy existing chart instance before creating a new one to prevent duplication
-    if (chartId === 'top5NewDemandChart' && top5NewDemandChart) top5NewDemandChart.destroy();
-    if (chartId === 'mtdRegistrationStatusChart' && mtdRegistrationStatusChart) mtdRegistrationStatusChart.destroy();
-    if (chartId === 'branchBundleNameChart' && branchBundleNameChart) branchBundleNameChart.destroy();
-    if (chartId === 'branchModemStatusChart' && branchModemStatusChart) branchModemStatusChart.destroy(); // Destroy new chart
-    if (chartId === 'branchNetSubscribersChart' && branchNetSubscribersChart) branchNetSubscribersChart.destroy(); // Destroy new chart
-    if (chartId === 'branchDailyNewSubscribersChart' && branchDailyNewSubscribersChart) branchDailyNewSubscribersChart.destroy(); // Destroy new chart
-    if (chartId === 'branchDailyTerminationChart' && branchDailyTerminationChart) branchDailyTerminationChart.destroy(); // Destroy new chart
-
-
-    // Create a new chart instance and save it to the global variable
-    if (chartId === 'top5NewDemandChart') top5NewDemandChart = new Chart(chartCtx, chartConfig);
-    else if (chartId === 'mtdRegistrationStatusChart') mtdRegistrationStatusChart = new Chart(chartCtx, chartConfig);
-    else if (chartId === 'branchBundleNameChart') branchBundleNameChart = new Chart(chartCtx, chartConfig);
-    else if (chartId === 'branchModemStatusChart') branchModemStatusChart = new Chart(chartCtx, chartConfig); // Create new chart
-    else if (chartId === 'branchNetSubscribersChart') branchNetSubscribersChart = new Chart(chartCtx, chartConfig); // Create new chart
-    else if (chartId === 'branchDailyNewSubscribersChart') branchDailyNewSubscribersChart = new Chart(chartCtx, chartConfig); // Create new chart
-    else if (chartId === 'branchDailyTerminationChart') branchDailyTerminationChart = new Chart(chartCtx, chartConfig); // Create new chart
-}
-
-// Placeholder functions (not used in this version, but kept for future expansion if needed)
-function updateProductPerformance() { console.log('updateProductPerformance (not used in this view)'); }
-function updateTerminationAnalysis() { console.log('updateTerminationAnalysis (not used in this view)'); }
-function updateMainCharts() { console.log('updateMainCharts (not used in this view, replaced by specific renders)'); }
-function displayCustomers() { console.log('displayCustomers (not used in this view)'); }
-function changePage() { console.log('changePage (not used in this view)'); }
