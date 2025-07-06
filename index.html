@@ -1,14 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Biznet Customer Overview Dashboard</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Font Awesome for icons -->
+    <!-- Font Awesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <!-- Chart.js for charts -->
+    <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
     <!-- Chart.js Datalabels Plugin -->
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0/dist/chartjs-plugin-datalabels.min.js"></script>
@@ -21,7 +21,7 @@
             color: #e2e8f0; /* Light text */
             margin: 0;
             padding: 0;
-            overflow-x: hidden; /* Mencegah scroll horizontal pada body */
+            overflow-x: hidden; /* Prevent horizontal scroll on body */
         }
         .dashboard-container {
             display: flex;
@@ -37,7 +37,7 @@
             box-shadow: 2px 0 5px rgba(0, 0, 0, 0.2);
             position: fixed;
             height: 100%;
-            overflow-y: auto;
+            overflow-y: auto; /* Enable scrolling for the entire sidebar if content overflows */
             z-index: 1000;
         }
         .sidebar-header {
@@ -47,6 +47,11 @@
             color: #63b3ed; /* Biznet blue for header */
             border-bottom: 1px solid #4a5568;
             margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+        }
+        .sidebar-header img {
+            margin-right: 0.75rem;
         }
         .sidebar-nav a {
             display: flex;
@@ -72,18 +77,48 @@
             margin-left: 1rem; /* Indentation for sub-items */
             list-style: none; /* Remove default list bullets */
             padding: 0;
+            max-height: calc(100vh - 250px); /* Adjust based on header/footer height in sidebar */
+            overflow-y: auto; /* Enable scrolling specifically for the branch list */
+            padding-right: 5px; /* Add some padding for the scrollbar */
         }
-        .sidebar-nav .list-group a {
-            padding: 0.4rem 1rem; /* Smaller padding for sub-items */
-            font-size: 0.8rem; /* Smaller font size for sub-items */
+        /* Custom scrollbar for Webkit browsers */
+        .sidebar-nav .list-group::-webkit-scrollbar {
+            width: 8px;
+        }
+        .sidebar-nav .list-group::-webkit-scrollbar-track {
+            background: #2d3748; /* Darker track */
+            border-radius: 10px;
+        }
+        .sidebar-nav .list-group::-webkit-scrollbar-thumb {
+            background: #63b3ed; /* Biznet blue thumb */
+            border-radius: 10px;
+        }
+        .sidebar-nav .list-group::-webkit-scrollbar-thumb:hover {
+            background: #4a90e2; /* Darker blue on hover */
+        }
+
+        .list-group-item {
+            display: flex; /* Use flex for list items */
+            align-items: center;
+            justify-content: space-between; /* Push chevron to the right */
+            padding: 0.4rem 1.5rem; /* Smaller padding for sub-items */
+            font-size: 0.85rem; /* Smaller font size for sub-items */
             margin-left: 0; /* Reset margin from parent */
             border-left: none; /* Remove left border for sub-items by default */
-            display: block; /* Ensure it takes full width of its container */
+            color: #cbd5e0;
+            text-decoration: none;
+            transition: background-color 0.2s, color 0.2s;
+            font-weight: 500;
         }
-        .sidebar-nav .list-group a:hover,
-        .sidebar-nav .list-group a.active {
+        .list-group-item:hover,
+        .list-group-item.active {
             background-color: #3a475a; /* Slightly different hover/active background for sub-items */
             border-left: 4px solid #63b3ed; /* Keep highlight for sub-items */
+            color: #ffffff;
+        }
+        .list-group-item .fas.fa-chevron-down,
+        .list-group-item .fas.fa-chevron-up {
+            margin-right: 0; /* Remove margin for chevron icon */
         }
 
         .main-content {
@@ -92,20 +127,9 @@
             padding: 2rem;
             background-color: #1a202c;
         }
-        .header {
-            background-color: #2d3748;
-            padding: 1.5rem 2rem;
-            border-bottom: 1px solid #4a5568;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-            border-radius: 0.5rem;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-        }
         .card {
             background-color: #2d3748;
-            border-radius: 0.5rem;
+            border-radius: 0.75rem;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
             padding: 1.5rem;
             margin-bottom: 1.5rem;
@@ -136,19 +160,12 @@
             gap: 1.5rem;
         }
         .kpi-card {
-            background-color: #2d3748;
-            border-radius: 0.5rem;
-            padding: 1.5rem;
             display: flex;
             flex-direction: column; /* Changed to column for icon on top */
             align-items: center;
             justify-content: center;
             text-align: center;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-            transition: transform 0.2s;
-        }
-        .kpi-card:hover {
-            transform: translateY(-5px);
+            height: 120px; /* Fixed height for consistency */
         }
         .kpi-card i {
             font-size: 2.5rem;
@@ -165,121 +182,173 @@
             font-weight: 700;
             color: #ffffff;
         }
-        .table-responsive {
-            overflow-x: auto; /* Memungkinkan scroll horizontal jika tabel terlalu lebar */
+        /* New styles for header-main layout */
+        .header-main {
+            background-color: #2d3748; /* Same as card background */
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap; /* Allow wrapping on smaller screens */
+        }
+        .header-title {
+            font-size: 1.5rem; /* Further reduced font size for Branch Details title */
+            font-weight: bold;
+            color: #ffffff;
+            margin-bottom: 0; /* Remove default margin */
+        }
+        .header-right {
+            display: flex;
+            flex-direction: column; /* Stack date and buttons vertically */
+            align-items: flex-end; /* Align items to the right */
+            gap: 0.5rem; /* Space between date and buttons */
+        }
+        .header-date {
+            color: #cbd5e0;
+            font-size: 0.85rem; /* Slightly smaller font for date */
+            margin-right: 0; /* Remove previous margin */
+            margin-bottom: 0.5rem; /* Space below date */
+        }
+        .header-buttons {
+            display: flex;
+            gap: 0.5rem; /* Space between filter buttons */
+            flex-wrap: wrap; /* Allow wrapping for buttons */
+            justify-content: flex-end; /* Align buttons to the right */
+        }
+        .header-buttons button {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            transition: background-color 0.2s ease;
+            background-color: #4a5568; /* Default gray for filters */
+            color: #ffffff;
+        }
+        .header-buttons button.active {
+            background-color: #63b3ed; /* Active Biznet blue */
+            color: #ffffff;
+        }
+        .header-buttons button:hover {
+            background-color: #63b3ed; /* Hover Biznet blue */
+        }
+
+        /* Styles for sub-navigation buttons (Customer List, Sales Code, etc.) */
+        .sub-nav-buttons {
+            display: flex;
+            flex-wrap: wrap; /* Allow buttons to wrap to next line */
+            gap: 0.75rem; /* Space between buttons */
+            margin-bottom: 2rem; /* Space below the button row */
+        }
+
+        .sub-nav-buttons button {
+            background-color: #4a5568; /* Default gray */
+            color: #ffffff;
+            padding: 0.75rem 1.25rem; /* Adjusted padding for a more compact look */
+            border-radius: 0.5rem; /* Rounded corners */
+            font-weight: 600;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* Subtle shadow */
+            flex-grow: 1; /* Allow buttons to grow and fill space */
+            min-width: 120px; /* Minimum width for buttons */
+            text-align: center;
+        }
+
+        .sub-nav-buttons button:hover {
+            background-color: #63b3ed; /* Biznet blue on hover */
+            transform: translateY(-1px); /* Slight lift effect */
+        }
+
+        .sub-nav-buttons button.active {
+            background-color: #63b3ed; /* Active Biznet blue */
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2); /* Stronger shadow for active */
+        }
+
+
+        .table-container {
+            overflow-x: auto;
+            border-radius: 0.75rem;
+            background-color: #2d3748;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
         .data-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 1rem;
-            table-layout: fixed; /* Penting: Memaksa kolom untuk menghormati lebar yang ditentukan */
         }
         .data-table th, .data-table td {
-            padding: 0.5rem; /* Padding sedikit lebih kecil */
+            padding: 0.75rem 1rem;
             text-align: left;
             border-bottom: 1px solid #4a5568;
-            font-size: 0.75rem; /* Ukuran font lebih kecil */
-            word-break: break-all; /* Memaksa teks untuk wrap */
-            overflow: hidden; /* Menyembunyikan konten yang meluap */
-            text-overflow: ellipsis; /* Menambahkan elipsis jika teks terpotong */
+            color: #cbd5e0;
+            white-space: nowrap; /* Prevent text wrapping in table headers/cells */
         }
         .data-table th {
             background-color: #4a5568;
-            color: #ffffff;
             font-weight: 600;
-            white-space: nowrap; /* Mencegah header wrap */
+            text-transform: uppercase;
+            font-size: 0.75rem; /* Smaller font for table headers */
+        }
+        /* Smaller font for table data cells and adjust padding */
+        .data-table td {
+            font-size: 0.7rem; /* Even smaller font for compactness */
+            padding: 0.5rem 0.75rem; /* Reduced padding */
         }
         .data-table tbody tr:hover {
             background-color: #4a5568;
         }
-        /* Ensure table cell text is white for better visibility */
-        .data-table td {
-            color: #ffffff; /* Explicitly set to white */
-        }
-
-        /* Menentukan lebar kolom spesifik untuk tabel pelanggan */
-        #branchCustomerTable th:nth-child(1), /* Business Partner ID */
-        #branchCustomerTable td:nth-child(1) { width: 10%; }
-        #branchCustomerTable th:nth-child(2), /* Nama Lengkap */
-        #branchCustomerTable td:nth-child(2) { width: 15%; }
-        #branchCustomerTable th:nth-child(3), /* Email */
-        #branchCustomerTable td:nth-child(3) { width: 15%; }
-        #branchCustomerTable th:nth-child(4), /* No. HP */
-        #branchCustomerTable td:nth-child(4) { width: 10%; }
-        #branchCustomerTable th:nth-child(5), /* Sales Code */
-        #branchCustomerTable td:nth-child(5) { width: 8%; }
-        #branchCustomerTable th:nth-child(6), /* Akun Kontrak */
-        #branchCustomerTable td:nth-child(6) { width: 10%; }
-        #branchCustomerTable th:nth-child(7), /* Alamat Instalasi */
-        #branchCustomerTable td:nth-child(7) { width: 20%; } /* Lebih lebar untuk alamat */
-        #branchCustomerTable th:nth-child(8), /* Status */
-        #branchCustomerTable td:nth-child(8) { width: 7%; }
-        #branchCustomerTable th:nth-child(9), /* Modem */
-        #branchCustomerTable td:nth-child(9) { width: 5%; }
-
-
-        .pagination-controls {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            margin-top: 1.5rem;
-            gap: 1rem;
-        }
         .pagination-controls button {
-            background-color: #63b3ed;
-            color: white;
+            background-color: #4a5568;
+            color: #ffffff;
             padding: 0.5rem 1rem;
-            border-radius: 0.375rem;
-            transition: background-color 0.2s;
+            border-radius: 0.5rem;
+            transition: background-color 0.2s ease;
         }
         .pagination-controls button:hover:not(:disabled) {
-            background-color: #4299e1;
+            background-color: #63b3ed;
         }
         .pagination-controls button:disabled {
-            background-color: #4a5568;
+            opacity: 0.5;
             cursor: not-allowed;
         }
-        .chart-container {
-            height: 300px; /* Fixed height for charts */
-            width: 100%;
-            margin-bottom: 1.5rem;
-            display: flex; /* Use flex to center content if no chart */
-            justify-content: center;
-            align-items: center;
-            color: #cbd5e0; /* Placeholder text color */
-        }
-        /* Specific styling for Top 10 lists */
         .top-list-item {
             display: flex;
             justify-content: space-between;
-            padding: 0.5rem 0;
-            border-bottom: 1px dashed #4a5568;
-            font-size: 0.9rem;
-            color: #cbd5e0;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid #4a5568;
+            font-size: 0.875rem; /* Slightly smaller font for list items */
         }
         .top-list-item:last-child {
             border-bottom: none;
         }
         .top-list-item .value {
-            font-weight: 600;
-            color: #ffffff;
+            font-weight: bold;
+            color: #63b3ed;
         }
-        /* Loading overlay styles */
+        .chart-container {
+            height: 300px; /* Fixed height for charts */
+            width: 100%;
+            display: flex; /* Use flex to center content if no chart */
+            justify-content: center;
+            align-items: center;
+            color: #cbd5e0; /* Placeholder text color */
+        }
         .loading-overlay {
             position: absolute;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.7);
+            right: 0;
+            bottom: 0;
+            background: rgba(45, 55, 72, 0.8); /* Semi-transparent dark overlay */
             display: flex;
             justify-content: center;
             align-items: center;
-            z-index: 999;
+            border-radius: 0.75rem;
+            z-index: 10;
         }
         .spinner {
             border: 4px solid rgba(255, 255, 255, 0.3);
-            border-top: 4px solid #63b3ed;
+            border-top: 4px solid #63b3ed; /* Biznet blue spinner */
             border-radius: 50%;
             width: 40px;
             height: 40px;
@@ -289,8 +358,7 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-
-        /* Responsive adjustments for sidebar */
+        /* Responsive adjustments */
         @media (max-width: 768px) {
             .sidebar {
                 width: 100%;
@@ -302,463 +370,417 @@
                 margin-left: 0;
                 padding: 1rem;
             }
-            .header {
-                flex-direction: column;
-                align-items: flex-start;
+            .grid-cols-1-md-3 { /* Custom class for responsive grid */
+                grid-template-columns: 1fr;
+            }
+            .kpi-card {
+                height: auto;
                 padding: 1rem;
             }
-            .header h2 {
-                margin-bottom: 1rem;
+            .header-main {
+                flex-direction: column;
+                align-items: flex-start;
+                padding: 1rem; /* Adjust padding for smaller screens */
             }
-            .kpi-grid {
-                grid-template-columns: 1fr; /* Stack KPIs on small screens */
+            .header-title {
+                font-size: 1.25rem; /* Even smaller title on mobile */
+                margin-bottom: 0.5rem;
+            }
+            .header-right {
+                width: 100%;
+                align-items: flex-start; /* Align date and buttons to left on mobile */
+                margin-top: 0.5rem;
+            }
+            .header-date {
+                margin-bottom: 0.25rem;
+            }
+            .header-buttons {
+                width: 100%;
+                justify-content: flex-start; /* Align buttons to left on mobile */
+            }
+            .header-buttons button {
+                width: calc(50% - 0.25rem); /* Two buttons per row */
+                padding: 0.6rem 1rem; /* Smaller padding for buttons */
+                font-size: 0.8rem; /* Smaller font for buttons */
+            }
+            .sub-nav-buttons button {
+                width: calc(50% - 0.375rem); /* Two buttons per row on small screens */
+                min-width: unset; /* Remove min-width constraint */
+            }
+            .data-table th, .data-table td {
+                padding: 0.5rem 0.75rem; /* Smaller padding for table cells on mobile */
+                font-size: 0.7rem; /* Even smaller font for table on mobile */
+            }
+            .top-list-item {
+                font-size: 0.8rem; /* Smaller font for list items on mobile */
             }
         }
-
-        /* Styles for sub-navigation in branch detail view */
-        .sub-nav-buttons button {
-            background-color: #4a5568;
-            color: #e2e8f0;
-            padding: 0.75rem 1.5rem;
-            border-radius: 0.375rem;
-            font-weight: 500;
-            transition: background-color 0.2s;
+        @media (min-width: 768px) {
+            .grid-cols-1-md-3 {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
         }
-        .sub-nav-buttons button:hover {
-            background-color: #5a667b;
-        }
-        .sub-nav-buttons button.active {
-            background-color: #63b3ed; /* Biznet blue for active tab */
-            color: #ffffff;
-        }
-
-        /* Inline Section specific styles (similar to modal for consistency) */
-        .inline-section {
-            background-color: #2d3748;
-            border-radius: 0.5rem;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
-            padding: 1.5rem;
-            margin-top: 2rem; /* Space from elements above */
-            color: #e2e8f0;
-        }
-        .inline-section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #4a5568;
-            padding-bottom: 1rem;
-            margin-bottom: 1rem;
-        }
-        .inline-section-header h2 {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: #e2e8f0;
-        }
-        .inline-close-button {
-            background: none;
-            border: none;
-            font-size: 1.5rem;
-            color: #e2e8f0;
-            cursor: pointer;
-            transition: color 0.2s;
-        }
-        .inline-close-button:hover {
-            color: #63b3ed;
-        }
-        .inline-table-container {
-            max-height: 400px; /* Limit height of table */
-            overflow-y: auto;
-        }
-        .inline-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 1rem;
-            table-layout: fixed; /* Penting: Memaksa kolom untuk menghormati lebar yang ditentukan */
-        }
-        .inline-table th, .inline-table td {
-            padding: 0.5rem; /* Padding sedikit lebih kecil */
-            text-align: left;
-            border-bottom: 1px solid #4a5568;
-            font-size: 0.75rem; /* Ukuran font lebih kecil */
-            word-break: break-all; /* Memaksa teks untuk wrap */
-            overflow: hidden; /* Menyembunyikan konten yang meluap */
-            text-overflow: ellipsis; /* Menambahkan elipsis jika teks terpotong */
-        }
-        .inline-table th {
-            background-color: #4a5568;
-            font-weight: 600;
-            white-space: nowrap;
-            position: sticky; /* Sticky header for scrolling table */
-            top: 0;
-            z-index: 1;
-        }
-        .inline-table tbody tr:hover {
-            background-color: #3a475a;
-        }
-        /* Menentukan lebar kolom spesifik untuk tabel terminated customers */
-        #inlineTerminatedCustomersTable th:nth-child(1), /* Nama Lengkap */
-        #inlineTerminatedCustomersTable td:nth-child(1) { width: 30%; }
-        #inlineTerminatedCustomersTable th:nth-child(2), /* Business Partner ID */
-        #inlineTerminatedCustomersTable td:nth-child(2) { width: 25%; }
-        #inlineTerminatedCustomersTable th:nth-child(3), /* No. HP */
-        #inlineTerminatedCustomersTable td:nth-child(3) { width: 25%; }
-        #inlineTerminatedCustomersTable th:nth-child(4), /* Tanggal Terminasi */
-        #inlineTerminatedCustomersTable td:nth-child(4) { width: 20%; }
-
-        /* Styles for daily new subscribers table */
-        #dailyNewSubscribersTable th:nth-child(1), /* Tanggal */
-        #dailyNewSubscribersTable td:nth-child(1) { width: 15%; }
-        #dailyNewSubscribersTable th:nth-child(2), /* Business Partner ID */
-        #dailyNewSubscribersTable td:nth-child(2) { width: 15%; }
-        #dailyNewSubscribersTable th:nth-child(3), /* Nama Lengkap */
-        #dailyNewSubscribersTable td:nth-child(3) { width: 25%; }
-        #dailyNewSubscribersTable th:nth-child(4), /* Sales Code */
-        #dailyNewSubscribersTable td:nth-child(4) { width: 10%; }
-        #dailyNewSubscribersTable th:nth-child(5), /* Status */
-        #dailyNewSubscribersTable td:nth-child(5) { width: 10%; }
-        #dailyNewSubscribersTable th:nth-child(6), /* Contract Start Date */
-        #dailyNewSubscribersTable td:nth-child(6) { width: 15%; }
-
-        /* Styles for Net Subscribers table */
-        #netSubscribersDetailTable th:nth-child(1), /* Bulan */
-        #netSubscribersDetailTable td:nth-child(1) { width: 25%; }
-        #netSubscribersDetailTable th:nth-child(2), /* Customer Baru */
-        #netSubscribersDetailTable td:nth-child(2) { width: 20%; }
-        #netSubscribersDetailTable th:nth-child(3), /* Terminated */
-        #netSubscribersDetailTable td:nth-child(3) { width: 20%; }
-        #netSubscribersDetailTable th:nth-child(4), /* Suspended */
-        #netSubscribersDetailTable td:nth-child(4) { width: 20%; }
-        #netSubscribersDetailTable th:nth-child(5), /* Net Subs */
-        #netSubscribersDetailTable td:nth-child(5) { width: 15%; }
     </style>
 </head>
-<body>
-    <div class="dashboard-container">
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <div class="sidebar-header">Biznet Dashboard</div>
-            <nav class="sidebar-nav">
-                <a href="#" id="dashboardNavLink" class="active"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-                <a href="#" id="branchListToggle"><i class="fas fa-building"></i> Branches <i class="fas fa-chevron-down ml-auto" id="branchToggleIcon"></i></a>
-                <div id="branchList" class="list-group" style="display: none;">
-                    <!-- Branch list will be populated here by JS -->
+<body class="flex flex-col md:flex-row">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <img src="https://placehold.co/40x40/63b3ed/ffffff?text=B" alt="Biznet Logo" class="h-10 w-10 rounded-full">
+            Biznet Dashboard
+        </div>
+        <nav class="sidebar-nav">
+            <a href="#" id="dashboardNavLink" class="active flex items-center space-x-2">
+                <i class="fas fa-chart-line"></i>
+                <span>Dashboard</span>
+            </a>
+            <div class="mb-4">
+                <a href="#" id="branchListToggle" class="flex items-center justify-between">
+                    <span>Branches</span>
+                    <i id="branchToggleIcon" class="fas fa-chevron-down"></i>
+                </a>
+                <div id="branchList" class="list-group mt-2 hidden">
+                    <!-- Branch list will be populated here by JavaScript -->
                 </div>
-                <!-- More navigation items can be added here -->
-            </nav>
-        </aside>
+            </div>
+        </nav>
+        <div class="mt-auto text-sm text-gray-400 text-center">
+            <p id="lastUpdateDate">Data per: N/A</p>
+        </div>
+    </aside>
 
-        <!-- Main Content -->
-        <main class="main-content">
-            <!-- Main Dashboard Overview -->
-            <div id="mainDashboardView">
-                <header class="header">
-                    <h1 class="text-3xl font-bold text-white">Branch Performance Dashboard</h1>
-                    <div class="flex items-center space-x-4">
-                        <div class="text-sm text-gray-400" id="lastUpdateDate">Last Update: N/A</div>
-                        <!-- Product Filters -->
-                        <button id="filterAllProducts" class="px-3 py-1 rounded-md text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors">All Products</button>
-                        <button id="filterHome" class="px-3 py-1 rounded-md text-sm font-semibold bg-gray-600 hover:bg-gray-700 text-white transition-colors">Home</button>
-                        <button id="filterMetronet" class="px-3 py-1 rounded-md text-sm font-semibold bg-gray-600 hover:bg-gray-700 text-white transition-colors">Metronet</button>
-                        <button id="filterEnterprise" class="px-3 py-1 rounded-md text-sm font-semibold bg-gray-600 hover:bg-gray-700 text-white transition-colors">Enterprise</button>
+    <!-- Main Content -->
+    <main class="main-content flex-1 p-8 overflow-y-auto">
+        <!-- Main Dashboard View -->
+        <section id="mainDashboardView" class="block">
+            <div class="header-main">
+                <h1 class="header-title">Branch Performance Dashboard</h1>
+                <div class="header-right">
+                    <span id="lastUpdateDateHeader" class="header-date">Data per: N/A</span>
+                    <div class="header-buttons">
+                        <button id="filterAllProducts" class="active">All Products</button>
+                        <button id="filterHome">Home</button>
+                        <button id="filterMetronet">Metronet</button>
+                        <button id="filterEnterprise">Enterprise</button>
                     </div>
-                </header>
-
-                <!-- Top KPIs Section -->
-                <section class="kpi-grid mb-6">
-                    <div class="kpi-card">
-                        <i class="fas fa-users"></i>
-                        <div class="kpi-info">
-                            <h3>Active Subscribers</h3>
-                            <p id="activeSubscribersKpi">0</p>
-                        </div>
-                    </div>
-                    <div class="kpi-card">
-                        <i class="fas fa-pause-circle"></i> <!-- Icon changed to pause-circle for suspended -->
-                        <div class="kpi-info">
-                            <h3>Suspended Subscribers</h3> <!-- Label changed to Suspended Subscribers -->
-                            <p id="suspendedSubscribersKpi">0</p> <!-- ID changed to suspendedSubscribersKpi -->
-                        </div>
-                    </div>
-                    <!-- The MTD Paid Subscribers card has been removed -->
-                    <div class="kpi-card">
-                        <i class="fas fa-user-times"></i>
-                        <div class="kpi-info">
-                            <h3>Termination Subscribers</h3>
-                            <p id="terminationSubscribersKpi">0</p>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Main Dashboard Charts and Top Lists -->
-                <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-                    <!-- Top 5 MTD New Subscribers Demand Product -->
-                    <div class="card">
-                        <div class="card-header">Top 5 MTD New Subscribers Demand Product</div>
-                        <div class="chart-container">
-                            <canvas id="top5NewDemandChart"></canvas>
-                        </div>
-                    </div>
-
-                    <!-- MTD Registration Status -->
-                    <div class="card">
-                        <div class="card-header">MTD Registration Status</div>
-                        <div class="chart-container">
-                            <canvas id="mtdRegistrationStatusChart"></canvas>
-                        </div>
-                    </div>
-
-                    <!-- Top 10 Net Subscribers -->
-                    <div class="card">
-                        <div class="card-header">Top 10 Net Subscribers</div>
-                        <div class="top-list-container">
-                            <ul id="topNetSubscribersList" class="list-none p-0 m-0">
-                                <!-- List items will be populated by JS -->
-                            </ul>
-                        </div>
-                    </div>
-
-                    <!-- Top 10 Terminate Subscribers -->
-                    <div class="card">
-                        <div class="card-header">Top 10 Terminate Subscribers</div>
-                        <div class="top-list-container">
-                            <ul id="topTerminateSubscribersList" class="list-none p-0 m-0">
-                                <!-- List items will be populated by JS -->
-                            </ul>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Inline Section for Terminated Customers (NEW SECTION) -->
-                <section id="inlineTerminatedCustomersSection" class="inline-section hidden">
-                    <div class="inline-section-header">
-                        <h2 id="inlineTerminatedCustomersTitle">Terminated Customers</h2>
-                        <button id="closeInlineTerminatedCustomersBtn" class="inline-close-button">&times;</button>
-                    </div>
-                    <div class="inline-table-container">
-                        <table id="inlineTerminatedCustomersTable" class="inline-table">
-                            <thead>
-                                <tr>
-                                    <th>Nama Lengkap</th>
-                                    <th>Business Partner ID</th>
-                                    <th>No. HP</th>
-                                    <th>Tanggal Terminasi</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- Customer data will be inserted here by JS -->
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
-
+                </div>
             </div>
 
-            <!-- Branch Detail View (Initially hidden) -->
-            <div id="branchDetailView" style="display: none;">
-                <header class="header">
-                    <h1 class="text-3xl font-bold text-white">Branch Details: <span id="currentBranchName"></span></h1>
-                    <button id="backToDashboardBtn" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-md shadow-md transition-colors">
-                        <i class="fas fa-arrow-left mr-2"></i> Back to Dashboard
+            <div class="grid grid-cols-1-md-3 gap-6 mb-8">
+                <div class="card kpi-card">
+                    <i class="fas fa-users kpi-icon"></i>
+                    <div class="kpi-label">Active Subscribers</div>
+                    <div class="kpi-value" id="activeSubscribersKpi">0</div>
+                </div>
+                <div class="card kpi-card">
+                    <i class="fas fa-pause-circle kpi-icon"></i>
+                    <div class="kpi-label">Suspended Subscribers</div>
+                    <div class="kpi-value" id="suspendedSubscribersKpi">0</div>
+                </div>
+                <div class="card kpi-card cursor-pointer hover:bg-gray-700" id="terminationSubscribersKpi">
+                    <i class="fas fa-user-times kpi-icon"></i>
+                    <div class="kpi-label">Termination Subscribers</div>
+                    <div class="kpi-value" id="terminationSubscribersKpiValue">0</div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <div class="card">
+                    <h2 class="text-xl font-semibold mb-4 text-white">Top 5 Permintaan Pelanggan Baru (MTD)</h2>
+                    <div class="chart-container">
+                        <canvas id="top5NewDemandChart"></canvas>
+                    </div>
+                </div>
+                <div class="card">
+                    <h2 class="text-xl font-semibold mb-4 text-white">Status Registrasi (MTD)</h2>
+                    <div class="chart-container">
+                        <canvas id="mtdRegistrationStatusChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <div class="card">
+                    <h2 class="text-xl font-semibold mb-4 text-white">Top 10 Net Subscribers (MTD)</h2>
+                    <ul id="topNetSubscribersList" class="divide-y divide-gray-700">
+                        <!-- Top Net Subscribers will be populated here by JavaScript -->
+                    </ul>
+                </div>
+                <div class="card">
+                    <h2 class="text-xl font-semibold mb-4 text-white">Top 10 Pelanggan Terminasi (MTD)</h2>
+                    <ul id="topTerminateSubscribersList" class="divide-y divide-gray-700">
+                        <!-- Top Terminate Subscribers will be populated here by JavaScript -->
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Inline Terminated Customers Section - Moved here -->
+            <div id="inlineTerminatedCustomersSection" class="card p-6 mb-8 hidden">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-semibold text-white" id="inlineTerminatedCustomersTitle">Detail Pelanggan Terminasi</h3>
+                    <button id="closeInlineTerminatedCustomersBtn" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md text-sm">Tutup</button>
+                </div>
+                <div class="table-container">
+                    <table class="data-table w-full" id="inlineTerminatedCustomersTable">
+                        <thead>
+                            <tr>
+                                <th>Nama Lengkap</th>
+                                <th>ID Bisnis Partner</th>
+                                <th>Telepon</th>
+                                <th>Tanggal Terminasi</th>
+                                <th>Lama Berlangganan</th>
+                                <th>Status Modem</th>
+                                <th>Akun Kontrak</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Data will be populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Branch Detail View -->
+        <section id="branchDetailView" class="hidden">
+            <div class="header-main">
+                <h1 class="header-title">Branch Details: <span id="currentBranchName"></span></h1>
+                <div class="header-right">
+                    <button id="backToDashboardBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2">
+                        <i class="fas fa-arrow-left"></i>
+                        <span>Back to Dashboard</span>
                     </button>
-                </header>
+                </div>
+            </div>
 
-                <!-- Sub-navigation for Branch Details -->
-                <div class="flex space-x-4 mb-6 sub-nav-buttons">
-                    <button id="showCustomerListBtn" class="active">Customer List</button>
-                    <button id="showSalesCodeStatusBtn">Sales Code Status</button>
-                    <button id="showBundleNameAnalysisBtn">Bundle Name Analysis</button>
-                    <!-- New buttons for additional sections -->
-                    <button id="showModemStatusAnalysisBtn">Modem Status Analysis</button>
-                    <button id="showNetSubscribersAnalysisBtn">Net Subscribers Analysis</button>
-                    <button id="showDailyNewSubscribersBtn">Daily New Subscribers</button>
+            <div class="sub-nav-buttons">
+                <button id="showCustomerListBtn" class="active">Customer List</button>
+                <button id="showSalesCodeStatusBtn">Sales Code Status</button>
+                <button id="showBundleNameAnalysisBtn">Bundle Name Analysis</button>
+                <button id="showModemStatusAnalysisBtn">Modem Status Analysis</button>
+                <button id="showNetSubscribersAnalysisBtn">Net Subscribers Analysis</button>
+                <button id="showDailyNewSubscribersBtn">Daily New Subscribers</button>
+                <button id="showDailyTerminationSubscribersBtn">Daily Termination</button>
+            </div>
+
+            <!-- Branch Customer List Section -->
+            <div id="branchCustomerListSection" class="card p-6 block">
+                <h2 class="text-xl font-semibold mb-4 text-white">Customer List Branch <span id="customerListBranchName"></span></h2>
+                <div class="flex flex-wrap gap-4 mb-4 items-center">
+                    <input type="text" id="customerSearchInput" placeholder="Search Customer (Name, ID, Email, Phone, Address)" class="flex-1 p-2 rounded-md bg-gray-700 text-white border border-gray-600">
+                    <select id="customerStatusFilter" class="p-2 rounded-md bg-gray-700 text-white border border-gray-600">
+                        <option value="">All Statuses</option>
+                    </select>
+                    <select id="customerSalesCodeFilter" class="p-2 rounded-md bg-gray-700 text-white border border-gray-600">
+                        <option value="">All Sales Codes</option>
+                    </select>
+                    <button id="applyCustomerFilters" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">Apply Filters</button>
+                    <button id="resetCustomerFilters" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md">Reset Filters</button>
+                </div>
+                <div class="table-container">
+                    <table class="data-table w-full" id="branchCustomerTable">
+                        <thead>
+                            <tr>
+                                <th>BP ID</th>
+                                <th>Full Name</th>
+                                <th>Email</th>
+                                <th>Phone</th>
+                                <th>Sales Code</th>
+                                <th>Contract Account</th>
+                                <th>Installation Address</th>
+                                <th>Status</th>
+                                <th>Modem Status</th>
+                                <th>Lama Berlangganan</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Customer data will be populated here by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="flex justify-between items-center mt-4 pagination-controls">
+                    <button id="branchPrevPage" disabled>Previous</button>
+                    <span>Page <span id="branchCurrentPage">1</span> of <span id="branchTotalPages">1</span></span>
+                    <button id="branchNextPage">Next</button>
+                </div>
+            </div>
+
+            <!-- Branch Sales Code Status Section -->
+            <div id="branchSalesCodeStatusSection" class="card p-6 hidden">
+                <h2 class="text-xl font-semibold mb-4 text-white">Customer Status per Sales Code Branch <span id="salesCodeStatusBranchName"></span></h2>
+                <div class="table-container mb-8">
+                    <h3 class="text-lg font-semibold mb-2 text-white">Total Data Keseluruhan</h3>
+                    <table class="data-table w-full" id="salesCodeStatusOverallTable">
+                        <thead>
+                            <tr>
+                                <th>Sales Code</th>
+                                <th>Active</th>
+                                <th>Suspended</th>
+                                <th>Terminated</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Sales code status overall data will be populated here by JavaScript -->
+                        </tbody>
+                    </table>
                 </div>
 
-                <!-- Customer List Section for Branch -->
-                <section id="branchCustomerListSection" class="card">
-                    <div class="card-header">Customer List for <span id="customerListBranchName"></span></div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                        <div>
-                            <label for="customerSearchInput" class="block text-sm font-medium text-gray-400">Search Customer</label>
-                            <input type="text" id="customerSearchInput" placeholder="Name, Email, or ID..." class="mt-1 block w-full rounded-md shadow-sm bg-gray-700 border-gray-600 text-white focus:ring-blue-500 focus:border-blue-500">
-                        </div>
-                        <div>
-                            <label for="customerStatusFilter" class="block text-sm font-medium text-gray-400">Filter Status</label>
-                            <select id="customerStatusFilter" class="mt-1 block w-full rounded-md shadow-sm bg-gray-700 border-gray-600 text-white focus:ring-blue-500 focus:border-blue-500">
-                                <option value="">All Statuses</option>
-                                <!-- Options populated by JS -->
-                            </select>
-                        </div>
-                        <div>
-                            <label for="customerSalesCodeFilter" class="block text-sm font-medium text-gray-400">Filter Sales Code</label>
-                            <select id="customerSalesCodeFilter" class="mt-1 block w-full rounded-md shadow-sm bg-gray-700 border-gray-600 text-white focus:ring-blue-500 focus:border-blue-500">
-                                <option value="">All Sales Codes</option>
-                                <!-- Options populated by JS -->
-                            </select>
-                        </div>
-                    </div>
-                    <div class="flex justify-end mb-4">
-                        <button id="applyCustomerFilters" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md shadow-md transition-colors mr-2">Apply Filters</button>
-                        <button id="resetCustomerFilters" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-md shadow-md transition-colors">Reset Filters</button>
-                    </div>
-                    <div class="table-responsive">
-                        <table id="branchCustomerTable" class="data-table w-full">
-                            <thead>
-                                <tr>
-                                    <th>Business Partner ID</th>
-                                    <th>Nama Lengkap</th>
-                                    <th>Email</th>
-                                    <th>No. HP</th>
-                                    <th>Sales Code</th>
-                                    <th>Akun Kontrak</th>
-                                    <th>Alamat Instalasi</th>
-                                    <th>Status</th>
-                                    <th>Modem</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr><td colspan="9" class="text-center text-muted">Data pelanggan akan muncul di sini.</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="pagination-controls">
-                        <button id="branchPrevPage">Previous</button>
-                        <span>Page <span id="branchCurrentPage">1</span> of <span id="branchTotalPages">1</span></span>
-                        <button id="branchNextPage">Next</button>
-                    </div>
-                </section>
-
-                <!-- Sales Code Status Section for Branch -->
-                <section id="branchSalesCodeStatusSection" class="card" style="display: none;">
-                    <div class="card-header">
-                        Customer Status per Sales Code for <span id="salesCodeStatusBranchName"></span>
-                        <div class="flex items-center space-x-2">
-                            <label for="salesCodeYearFilter" class="block text-sm font-medium text-gray-400">Year:</label>
-                            <select id="salesCodeYearFilter" class="mt-1 block w-auto rounded-md shadow-sm bg-gray-700 border-gray-600 text-white focus:ring-blue-500 focus:border-blue-500"></select>
-                            <label for="salesCodeMonthFilter" class="block text-sm font-medium text-gray-400">Month:</label>
-                            <select id="salesCodeMonthFilter" class="mt-1 block w-auto rounded-md shadow-sm bg-gray-700 border-gray-600 text-white focus:ring-blue-500 focus:border-blue-500"></select>
-                        </div>
-                    </div>
-                    <div class="table-responsive">
-                        <table id="branchSalesCodeStatusTable" class="data-table w-full">
-                            <thead>
-                                <tr>
-                                    <th>Sales Code</th>
-                                    <th>Active</th>
-                                    <th>Suspended</th>
-                                    <th>Terminated</th>
-                                    <th>Total</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr><td colspan="5" class="text-center text-muted">Data Sales Code akan muncul di sini.</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
-
-                <!-- Bundle Name Analysis Section for Branch -->
-                <section id="branchBundleNameAnalysisSection" class="card" style="display: none;">
-                    <div class="card-header">
-                        Analisis Customer per Tipe Bundle Name for <span id="bundleNameAnalysisBranchName"></span>
-                        <div class="flex items-center space-x-2">
-                            <label for="bundleNameYearFilter" class="block text-sm font-medium text-gray-400">Year:</label>
-                            <select id="bundleNameYearFilter" class="mt-1 block w-auto rounded-md shadow-sm bg-gray-700 border-gray-600 text-white focus:ring-blue-500 focus:border-blue-500"></select>
-                            <label for="bundleNameMonthFilter" class="block text-sm font-medium text-gray-400">Month:</label>
-                            <select id="bundleNameMonthFilter" class="mt-1 block w-auto rounded-md shadow-sm bg-gray-700 border-gray-600 text-white focus:ring-blue-500 focus:border-500"></select>
-                        </div>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="branchBundleNameChart"></canvas>
-                    </div>
-                </section>
-
-                <!-- NEW: Modem Status Analysis Section for Branch -->
-                <section id="branchModemStatusAnalysisSection" class="card" style="display: none;">
-                    <div class="card-header">
-                        Analisis Customer per Status Modem for <span id="modemStatusAnalysisBranchName"></span>
-                        <div class="flex items-center space-x-2">
-                            <label for="modemStatusYearFilter" class="block text-sm font-medium text-gray-400">Year:</label>
-                            <select id="modemStatusYearFilter" class="mt-1 block w-auto rounded-md shadow-sm bg-gray-700 border-gray-600 text-white focus:ring-blue-500 focus:border-blue-500"></select>
-                            <label for="modemStatusMonthFilter" class="block text-sm font-medium text-gray-400">Month:</label>
-                            <select id="modemStatusMonthFilter" class="mt-1 block w-auto rounded-md shadow-sm bg-gray-700 border-gray-600 text-white focus:ring-blue-500 focus:border-blue-500"></select>
-                        </div>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="branchModemStatusChart"></canvas>
-                    </div>
-                </section>
-
-                <!-- NEW: Net Subscribers Analysis Section for Branch -->
-                <section id="branchNetSubscribersAnalysisSection" class="card" style="display: none;">
-                    <div class="card-header">
-                        Analisis Net Subscribers per Bulan (Customer Baru, Suspend & Terminated) for <span id="netSubscribersAnalysisBranchName"></span>
-                        <div class="flex items-center space-x-2">
-                            <label for="netSubscribersYearFilter" class="block text-sm font-medium text-gray-400">Year:</label>
-                            <select id="netSubscribersYearFilter" class="mt-1 block w-auto rounded-md shadow-sm bg-gray-700 border-gray-600 text-white focus:ring-blue-500 focus:border-blue-500"></select>
-                            <label for="netSubscribersMonthFilter" class="block text-sm font-medium text-gray-400">Month:</label>
-                            <select id="netSubscribersMonthFilter" class="mt-1 block w-auto rounded-md shadow-sm bg-gray-700 border-gray-600 text-white focus:ring-blue-500 focus:border-blue-500"></select>
-                        </div>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="branchNetSubscribersChart"></canvas>
-                    </div>
-                    <!-- New table for Net Subscribers data -->
-                    <div class="table-responsive mt-4">
-                        <table id="netSubscribersDetailTable" class="data-table w-full">
-                            <thead>
-                                <tr>
-                                    <th>Bulan</th>
-                                    <th>Customer Baru</th>
-                                    <th>Terminated</th>
-                                    <th>Suspended</th>
-                                    <th>Net Subs</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr><td colspan="5" class="text-center text-muted">Data Net Subscribers akan muncul di sini.</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
-
-                 <!-- NEW: Daily New Subscribers Section for Branch -->
-                <section id="branchDailyNewSubscribersSection" class="card" style="display: none;">
-                    <div class="card-header">
-                        Daily New Subscribers for <span id="dailyNewSubscribersBranchName"></span>
-                        <div class="flex items-center space-x-2">
-                            <label for="dailyNewYearFilter" class="block text-sm font-medium text-gray-400">Year:</label>
-                            <select id="dailyNewYearFilter" class="mt-1 block w-auto rounded-md shadow-sm bg-gray-700 border-gray-600 text-white focus:ring-blue-500 focus:border-blue-500"></select>
-                            <label for="dailyNewMonthFilter" class="block text-sm font-medium text-gray-400">Month:</label>
-                            <select id="dailyNewMonthFilter" class="mt-1 block w-auto rounded-md shadow-sm bg-gray-700 border-gray-600 text-white focus:ring-blue-500 focus:border-blue-500"></select>
-                        </div>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="branchDailyNewSubscribersChart"></canvas>
-                    </div>
-                    <div class="table-responsive mt-4">
-                        <table id="dailyNewSubscribersTable" class="data-table w-full">
-                            <thead>
-                                <tr>
-                                    <th>Tanggal</th>
-                                    <th>Business Partner ID</th>
-                                    <th>Nama Lengkap</th>
-                                    <th>Sales Code</th>
-                                    <th>Status</th>
-                                    <th>Contract Start Date</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr><td colspan="6" class="text-center text-muted">Data pelanggan baru harian akan muncul di sini.</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
-
+                <!-- The "Data Bulan Berjalan" table is removed from here -->
             </div>
-        </main>
-    </div>
 
-    <!-- Your custom JavaScript -->
+            <!-- Branch Bundle Name Analysis Section -->
+            <div id="branchBundleNameAnalysisSection" class="card p-6 hidden">
+                <h2 class="text-xl font-semibold mb-4 text-white">Customer Analysis per Bundle Name Type Branch <span id="bundleNameAnalysisBranchName"></span></h2>
+                <div class="flex flex-wrap gap-4 mb-4 items-center">
+                    <select id="bundleNameYearFilter" class="p-2 rounded-md bg-gray-700 text-white border border-gray-600">
+                        <option value="">All Years</option>
+                    </select>
+                    <select id="bundleNameMonthFilter" class="p-2 rounded-md bg-gray-700 text-white border border-gray-600">
+                        <option value="">All Months</option>
+                    </select>
+                </div>
+                <div class="chart-container">
+                    <canvas id="branchBundleNameChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Branch Modem Status Analysis Section -->
+            <div id="branchModemStatusAnalysisSection" class="card p-6 hidden">
+                <h2 class="text-xl font-semibold mb-4 text-white">Customer Analysis per Modem Status Branch <span id="modemStatusAnalysisBranchName"></span></h2>
+                <div class="flex flex-wrap gap-4 mb-4 items-center">
+                    <select id="modemStatusYearFilter" class="p-2 rounded-md bg-gray-700 text-white border border-gray-600">
+                        <option value="">All Years</option>
+                    </select>
+                    <select id="modemStatusMonthFilter" class="p-2 rounded-md bg-gray-700 text-white border border-gray-600">
+                        <option value="">All Months</option>
+                    </select>
+                </div>
+                <div class="chart-container">
+                    <canvas id="branchModemStatusChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Branch Net Subscribers Analysis Section -->
+            <div id="branchNetSubscribersAnalysisSection" class="card p-6 hidden">
+                <h2 class="text-xl font-semibold mb-4 text-white">Net Subscribers Analysis per Month Branch <span id="netSubscribersAnalysisBranchName"></span></h2>
+                <div class="flex flex-wrap gap-4 mb-4 items-center">
+                    <select id="netSubscribersYearFilter" class="p-2 rounded-md bg-gray-700 text-white border border-gray-600">
+                        <option value="">All Years</option>
+                    </select>
+                    <select id="netSubscribersMonthFilter" class="p-2 rounded-md bg-gray-700 text-white border border-gray-600">
+                        <option value="">All Months</option>
+                    </select>
+                </div>
+                <div class="chart-container">
+                    <canvas id="branchNetSubscribersChart"></canvas>
+                </div>
+                <div class="table-container mt-6">
+                    <h3 class="text-lg font-semibold mb-2 text-white">Net Subscribers Details</h3>
+                    <table class="data-table w-full" id="netSubscribersDetailTable">
+                        <thead>
+                            <tr>
+                                <th>Month & Year</th>
+                                <th>New Customers</th>
+                                <th>Terminated</th>
+                                <th>Suspended</th>
+                                <th>Net</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Net Subscribers detail data will be populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Branch Daily New Subscribers Section -->
+            <div id="branchDailyNewSubscribersSection" class="card p-6 hidden">
+                <h2 class="text-xl font-semibold mb-4 text-white">Daily New Subscribers Branch <span id="dailyNewSubscribersBranchName"></span></h2>
+                <div class="flex flex-wrap gap-4 mb-4 items-center">
+                    <select id="dailyNewYearFilter" class="p-2 rounded-md bg-gray-700 text-white border border-gray-600">
+                        <option value="">All Years</option>
+                    </select>
+                    <select id="dailyNewMonthFilter" class="p-2 rounded-md bg-gray-700 text-white border border-gray-600">
+                        <option value="">All Months</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div class="card kpi-card">
+                        <div class="kpi-value" id="totalNewCustomersKpi">0</div>
+                        <div class="kpi-label">Total New Customers (MoM)</div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="branchDailyNewSubscribersChart"></canvas>
+                </div>
+                <div class="table-container mt-6">
+                    <h3 class="text-lg font-semibold mb-2 text-white">Daily New Subscribers Details</h3>
+                    <table class="data-table w-full" id="dailyNewSubscribersTable">
+                        <thead>
+                            <tr>
+                                <th>Contract Date</th>
+                                <th>BP ID</th>
+                                <th>Full Name</th>
+                                <th>Sales Code</th>
+                                <th>Status</th>
+                                <th>Contract Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Daily new subscribers detail data will be populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Branch Daily Termination Subscribers Section -->
+            <div id="branchDailyTerminationSubscribersSection" class="card p-6 hidden">
+                <h2 class="text-xl font-semibold mb-4 text-white">Daily Termination Branch <span id="dailyTerminationSubscribersBranchName"></span></h2>
+                <div class="flex flex-wrap gap-4 mb-4 items-center">
+                    <select id="dailyTerminationYearFilter" class="p-2 rounded-md bg-gray-700 text-white border border-gray-600">
+                        <option value="">All Years</option>
+                    </select>
+                    <select id="dailyTerminationMonthFilter" class="p-2 rounded-md bg-gray-700 text-white border border-gray-600">
+                        <option value="">All Months</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div class="card kpi-card">
+                        <div class="kpi-value" id="totalActiveTerminationsKpi">0</div>
+                        <div class="kpi-label">Total Active Terminations (MoM)</div>
+                    </div>
+                    <div class="card kpi-card">
+                        <div class="kpi-value" id="totalForecastTerminationsKpi">0</div>
+                        <div class="kpi-label">Total Perkiraan Terminasi (MoM)</div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="branchDailyTerminationChart"></canvas>
+                </div>
+                <div class="table-container mt-6">
+                    <h3 class="text-lg font-semibold mb-2 text-white">Daily Termination Details</h3>
+                    <table class="data-table w-full" id="dailyTerminationSubscribersTable">
+                        <thead>
+                            <tr>
+                                <th>Full Name</th>
+                                <th>BP ID</th>
+                                <th>Sales Code</th>
+                                <th>Status</th>
+                                <th>Expired Date</th>
+                                <th>Termination Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Daily termination subscribers detail data will be populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Link to your JavaScript file -->
     <script src="script.js"></script>
 </body>
 </html>
