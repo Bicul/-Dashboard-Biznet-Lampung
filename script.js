@@ -927,10 +927,20 @@ function showBranchDetailSection(sectionType) {
         document.getElementById('branchBundleNameAnalysisSection').classList.remove('hidden');
         document.getElementById('showBundleNameAnalysisBtn').classList.add('active');
         renderBranchBundleNameChart(currentBranchData); // Re-render with current filters
+        // Clear the detail table when the section is shown/re-rendered
+        const tableBody = document.querySelector('#bundleNameDetailTable tbody');
+        if (tableBody) {
+            tableBody.innerHTML = '<tr><td colspan="11" class="text-center text-muted">Klik bar pada grafik untuk melihat detail pelanggan.</td></tr>';
+        }
     } else if (sectionType === 'modemStatusAnalysis') { // New section
         document.getElementById('branchModemStatusAnalysisSection').classList.remove('hidden');
         document.getElementById('showModemStatusAnalysisBtn').classList.add('active');
         renderBranchModemStatusChart(currentBranchData);
+        // Clear the detail table when the section is shown/re-rendered
+        const tableBody = document.querySelector('#modemStatusDetailTable tbody');
+        if (tableBody) {
+            tableBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Klik bagian donat untuk melihat detail pelanggan.</td></tr>';
+        }
     } else if (sectionType === 'netSubscribersAnalysis') { // New section
         document.getElementById('branchNetSubscribersAnalysisSection').classList.remove('hidden');
         document.getElementById('showNetSubscribersAnalysisBtn').classList.add('active');
@@ -1175,8 +1185,8 @@ function populateBranchSalesCodeStatusOverallTable(data) {
 }
 
 /**
- * Renders the "Analisis Customer per Tipe Bundle Name" chart for the current branch.
- * @param {Array<Object>} data - The data for the current branch.
+ * Renders the "Analisis Customer per Tipe Bundle Name" chart.
+ * @param {Array<Object>} data - The filtered customer data.
  */
 function renderBranchBundleNameChart(data) {
     const selectedYear = document.getElementById('bundleNameYearFilter')?.value;
@@ -1282,7 +1292,84 @@ function renderBranchBundleNameChart(data) {
         }
     });
     console.log('Branch Bundle Name Chart Rendered.');
+
+    // Add click event listener to the chart
+    ctx.onclick = function(evt) {
+        const points = branchBundleNameChart.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
+        if (points.length) {
+            const firstPoint = points[0];
+            const clickedBundleName = branchBundleNameChart.data.labels[firstPoint.index];
+            console.log(`Bundle Name Chart clicked: Bundle ${clickedBundleName}, Year: ${selectedYear}, Month: ${selectedMonth}`);
+            displayBundleNameDetail(filteredData, selectedYear, selectedMonth, clickedBundleName);
+        } else {
+            // If no bar is clicked, clear the table
+            const tableBody = document.querySelector('#bundleNameDetailTable tbody');
+            if (tableBody) {
+                tableBody.innerHTML = '<tr><td colspan="11" class="text-center text-muted">Klik bar pada grafik untuk melihat detail pelanggan.</td></tr>';
+            }
+        }
+    };
 }
+
+/**
+ * Displays detailed bundle name data in the table.
+ * @param {Array<Object>} filteredChartData - The data used to render the chart (already filtered by month/year).
+ * @param {string} selectedYear - The selected year from the filter.
+ * @param {string} selectedMonth - The selected month from the filter.
+ * @param {string} clickedBundleName - The bundle name clicked on the chart.
+ */
+function displayBundleNameDetail(filteredChartData, selectedYear, selectedMonth, clickedBundleName) {
+    const tableBody = document.querySelector('#bundleNameDetailTable tbody');
+    if (!tableBody) {
+        console.warn('Bundle Name Detail table body not found for detail display.');
+        return;
+    }
+    tableBody.innerHTML = ''; // Clear existing rows
+
+    const customersForClickedBundle = filteredChartData.filter(customer => {
+        return (customer.BUNDLE_NAME || 'Unknown') === clickedBundleName;
+    });
+
+    console.log(`Found ${customersForClickedBundle.length} customers for bundle ${clickedBundleName} in ${selectedMonth}/${selectedYear}.`);
+
+    if (customersForClickedBundle.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="11" class="text-center text-muted">Tidak ada pelanggan dengan bundle ${clickedBundleName} pada bulan ${selectedMonth}/${selectedYear}.</td></tr>`;
+        return;
+    }
+
+    customersForClickedBundle.forEach(customer => {
+        const row = tableBody.insertRow();
+        row.insertCell().textContent = customer.BUSINESSPARTNERID || '-';
+        row.insertCell().textContent = customer.BP_FULLNAME || '-';
+        row.insertCell().textContent = customer.BP_EMAIL || '-';
+        row.insertCell().textContent = customer.BP_PHONE || '-';
+        row.insertCell().textContent = customer.SALESCODE || '-';
+        row.insertCell().textContent = customer.CONTRACTACCOUNT || '-';
+        
+        const fullAddress = [
+            customer.INSTALLATION_ADDRESS1,
+            customer.INSTALLATION_ADDRESS2,
+            customer.INSTALLATION_ADDRESS3,
+            customer.INSTALLATION_ADDRESS4
+        ].filter(Boolean).join(', ');
+        row.insertCell().textContent = fullAddress || '-';
+        
+        row.insertCell().textContent = customer.STATUS || '-';
+        
+        let modemStatus = customer.MODEM_STATUS || '-';
+        if (customer.PROMO_CODE && (customer.PROMO_CODE === 'MODEMPROMO25' || customer.PROMO_CODE === 'MODEMWIFIPROMO')) {
+            modemStatus = 'DIPINJAMKAN';
+        }
+        row.insertCell().textContent = modemStatus;
+
+        const endDateForDuration = customer.TERMDATE instanceof Date ? customer.TERMDATE : (customer.STATUS === 'ACTIVE' ? new Date() : null);
+        const subscriptionDuration = calculateDuration(customer.CONTRACTSTARTDATE, endDateForDuration);
+        row.insertCell().textContent = subscriptionDuration;
+
+        row.insertCell().textContent = customer.CONTRACTSTARTDATE ? customer.CONTRACTSTARTDATE.toLocaleDateString('id-ID') : '-';
+    });
+}
+
 
 /**
  * Renders the "Analisis Customer per Status Modem" chart for the current branch.
@@ -1443,8 +1530,8 @@ function displayModemStatusDetail(filteredChartData, selectedYear, selectedMonth
     customersForClickedStatus.forEach(customer => {
         const row = tableBody.insertRow();
         row.insertCell().textContent = customer.CONTRACTSTARTDATE ? customer.CONTRACTSTARTDATE.toLocaleDateString('id-ID') : '-';
-        row.insertCell().textContent = customer.BP_FULLNAME || '-';
-        row.insertCell().textContent = customer.BUSINESSPARTNERID || '-';
+        row.insertCell().textContent = customer.BP_FULLNAME || '-'; // Full Name
+        row.insertCell().textContent = customer.CONTRACTACCOUNT || '-'; // Contract Account
         row.insertCell().textContent = customer.SALESCODE || '-';
         row.insertCell().textContent = customer.MODEM_STATUS || '-'; // Original modem status
         row.insertCell().textContent = customer.PROMO_CODE || '-'; // Promo code
@@ -1460,31 +1547,10 @@ function renderBranchNetSubscribersChart(data) {
     const selectedYear = document.getElementById('netSubscribersYearFilter')?.value;
     const selectedMonth = document.getElementById('netSubscribersMonthFilter')?.value;
 
-    let filteredData = data;
-    if (selectedYear || selectedMonth) {
-        filteredData = data.filter(customer => {
-            const contractDate = customer.CONTRACTSTARTDATE;
-            const termDate = customer.TERMDATE;
-
-            let dateToCheck = null;
-            // Prioritize termDate for terminated customers, otherwise use contractDate
-            if (customer.STATUS === 'TERMINATED' && termDate instanceof Date) {
-                dateToCheck = termDate;
-            } else if (contractDate instanceof Date) {
-                dateToCheck = contractDate;
-            }
-
-            if (!dateToCheck) return false;
-
-            const yearMatch = selectedYear ? dateToCheck.getFullYear().toString() === selectedYear : true;
-            const monthMatch = selectedMonth ? (dateToCheck.getMonth() + 1).toString().padStart(2, '0') === selectedMonth : true;
-            return yearMatch && monthMatch;
-        });
-    }
-
+    // Aggregate all data first, then filter labels for display
     const monthlyData = {}; // { 'YYYY-MM': { new: 0, suspended: 0, terminated: 0, net: 0 } }
 
-    filteredData.forEach(c => {
+    data.forEach(c => {
         let monthKeyForNew = null;
         let monthKeyForTerminated = null;
         let monthKeyForSuspended = null;
@@ -1495,20 +1561,12 @@ function renderBranchNetSubscribersChart(data) {
         if (c.TERMDATE instanceof Date && c.STATUS === 'TERMINATED') {
             monthKeyForTerminated = `${c.TERMDATE.getFullYear()}-${(c.TERMDATE.getMonth() + 1).toString().padStart(2, '0')}`;
         }
-        // Suspended for Net Subscribers Chart: EXPIREDDATE in the current month
-        if (c.EXPIREDDATE instanceof Date) {
-            const expiredDate = new Date(c.EXPIREDDATE);
-            const today = latestAvailableDataDate ? new Date(latestAvailableDataDate) : new Date();
-            today.setHours(0, 0, 0, 0);
-            const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-            startOfMonth.setHours(0, 0, 0, 0);
-
-            if (expiredDate >= startOfMonth && expiredDate <= today) {
-                monthKeyForSuspended = `${expiredDate.getFullYear()}-${(expiredDate.getMonth() + 1).toString().padStart(2, '0')}`;
-            }
+        // Count suspended based on EXPIREDDATE if customer is currently suspended
+        if (c.EXPIREDDATE instanceof Date && c.STATUS === 'SUSPENDED') {
+            monthKeyForSuspended = `${c.EXPIREDDATE.getFullYear()}-${(c.EXPIREDDATE.getMonth() + 1).toString().padStart(2, '0')}`;
         }
 
-        // Collect all unique month keys involved in this customer's lifecycle
+        // Ensure all relevant month keys are initialized in monthlyData
         const relevantMonthKeys = new Set();
         if (monthKeyForNew) relevantMonthKeys.add(monthKeyForNew);
         if (monthKeyForTerminated) relevantMonthKeys.add(monthKeyForTerminated);
@@ -1537,13 +1595,42 @@ function renderBranchNetSubscribersChart(data) {
         monthlyData[monthKey].net = monthlyData[monthKey].new - monthlyData[monthKey].terminated;
     });
 
+    // Determine labels based on filters
+    let labels = [];
+    if (selectedYear && selectedMonth) {
+        // Specific month selected: show only that month
+        labels.push(`${selectedYear}-${selectedMonth}`);
+    } else if (selectedYear) {
+        // Only year selected: show all 12 months for that year
+        const startYear = parseInt(selectedYear);
+        for (let m = 1; m <= 12; m++) {
+            labels.push(`${startYear}-${m.toString().padStart(2, '0')}`);
+        }
+    } else {
+        // No year/month selected: default to the latest available year in the data
+        const allYears = [...new Set(Object.keys(monthlyData).map(key => parseInt(key.split('-')[0])))].sort((a, b) => b - a);
+        const defaultYear = allYears.length > 0 ? allYears[0] : new Date().getFullYear();
+        for (let m = 1; m <= 12; m++) {
+            labels.push(`${defaultYear}-${m.toString().padStart(2, '0')}`);
+        }
+    }
 
-    const sortedMonths = Object.keys(monthlyData).sort();
+    // Sort labels chronologically
+    labels.sort();
 
-    const newCustomersData = sortedMonths.map(month => monthlyData[month].new);
-    const suspendedData = sortedMonths.map(month => monthlyData[month].suspended);
-    const terminatedData = sortedMonths.map(month => monthlyData[month].terminated);
-    const netSubsData = sortedMonths.map(month => monthlyData[month].net);
+    // Prepare chart data based on the determined labels
+    const newCustomersData = labels.map(monthKey => (monthlyData[monthKey] ? monthlyData[monthKey].new : 0));
+    const suspendedData = labels.map(monthKey => (monthlyData[monthKey] ? monthlyData[monthKey].suspended : 0));
+    const terminatedData = labels.map(monthKey => (monthlyData[monthKey] ? monthlyData[monthKey].terminated : 0));
+    const netSubsData = labels.map(monthKey => (monthlyData[monthKey] ? monthlyData[monthKey].net : 0));
+
+    // Convert 'YYYY-MM' labels to 'Bulan YYYY' for display
+    const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni",
+                        "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+    const displayLabels = labels.map(label => {
+        const [year, month] = label.split('-');
+        return `${monthNames[parseInt(month) - 1]} ${year}`;
+    });
 
     const ctx = document.getElementById('branchNetSubscribersChart');
     if (!ctx) {
@@ -1556,7 +1643,7 @@ function renderBranchNetSubscribersChart(data) {
     branchNetSubscribersChart = new Chart(chartCtx, {
         type: 'line',
         data: {
-            labels: sortedMonths,
+            labels: displayLabels, // Use displayLabels here for formatted month names
             datasets: [
                 {
                     label: 'Customer Baru',
@@ -1639,17 +1726,20 @@ function renderBranchNetSubscribersChart(data) {
     console.log('Branch Net Subscribers Chart Rendered.');
 
     // Populate the table below the chart
-    populateNetSubscribersDetailTable(monthlyData, sortedMonths, selectedYear, selectedMonth);
+    // The table should also reflect the labels generated for the chart
+    const tableData = labels.map(monthKey => ({
+        monthKey: monthKey,
+        data: monthlyData[monthKey] || { new: 0, suspended: 0, terminated: 0, net: 0 }
+    }));
+    populateNetSubscribersDetailTable(tableData, displayLabels); // Pass tableData and displayLabels
 }
 
 /**
  * Populates the table for Net Subscribers data.
- * @param {Object} monthlyData - The aggregated data for each month.
- * @param {Array<string>} sortedMonths - Sorted list of month keys.
- * @param {string} selectedYear - The currently selected year from the filter.
- * @param {string} selectedMonth - The currently selected month from the filter.
+ * @param {Array<Object>} tableData - The aggregated data for each month, with monthKey.
+ * @param {Array<string>} displayLabels - Formatted labels for display (e.g., "Januari 2025").
  */
-function populateNetSubscribersDetailTable(monthlyData, sortedMonths, selectedYear, selectedMonth) {
+function populateNetSubscribersDetailTable(tableData, displayLabels) {
     const tableBody = document.querySelector('#netSubscribersDetailTable tbody');
     if (!tableBody) {
         console.warn('Net Subscribers Detail table body not found.');
@@ -1657,39 +1747,14 @@ function populateNetSubscribersDetailTable(monthlyData, sortedMonths, selectedYe
     }
     tableBody.innerHTML = ''; // Clear existing rows
 
-    const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni",
-                        "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
-
-    let dataToDisplay = [];
-
-    if (selectedYear && selectedMonth) {
-        // If both year and month are selected, show only that specific month
-        const targetMonthKey = `${selectedYear}-${selectedMonth.padStart(2, '0')}`;
-        if (monthlyData[targetMonthKey]) {
-            dataToDisplay.push({ monthKey: targetMonthKey, data: monthlyData[targetMonthKey] });
-        }
-    } else if (selectedYear) {
-        // If only year is selected, show all months for that year
-        dataToDisplay = sortedMonths
-            .filter(monthKey => monthKey.startsWith(selectedYear))
-            .map(monthKey => ({ monthKey: monthKey, data: monthlyData[monthKey] }));
-    } else {
-        // If no filters or only month is selected (which defaults to all years for that month), show all data
-        dataToDisplay = sortedMonths.map(monthKey => ({ monthKey: monthKey, data: monthlyData[monthKey] }));
-    }
-
-    if (dataToDisplay.length === 0) {
+    if (tableData.length === 0) {
         tableBody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Tidak ada data Net Subscribers untuk filter yang dipilih.</td></tr>';
         return;
     }
 
-    dataToDisplay.forEach(item => {
-        const year = item.monthKey.split('-')[0];
-        const monthNum = parseInt(item.monthKey.split('-')[1]);
-        const monthName = monthNames[monthNum - 1];
-
+    tableData.forEach((item, index) => {
         const row = tableBody.insertRow();
-        row.insertCell().textContent = `${monthName} ${year}`;
+        row.insertCell().textContent = displayLabels[index]; // Use the formatted display label
         row.insertCell().textContent = item.data.new;
         row.insertCell().textContent = item.data.terminated;
         row.insertCell().textContent = item.data.suspended;
