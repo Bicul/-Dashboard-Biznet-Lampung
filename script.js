@@ -1515,7 +1515,7 @@ function displayModemStatusDetail(filteredChartData, selectedYear, selectedMonth
     const customersForClickedStatus = filteredChartData.filter(customer => {
         let customerModemStatus = customer.MODEM_STATUS || 'TIDAK DIKETAHUI';
         if (customer.PROMO_CODE && (customer.PROMO_CODE === 'MODEMPROMO25' || customer.PROMO_CODE === 'MODEMWIFIPROMO')) {
-            customerModemStatus = 'MODEM DIPINJAMKAN';
+            customerModemStatus = 'DIPINJAMKAN';
         }
         return customerModemStatus === clickedStatus;
     });
@@ -1624,7 +1624,7 @@ function renderBranchNetSubscribersChart(data) {
     const terminatedData = labels.map(monthKey => (monthlyData[monthKey] ? monthlyData[monthKey].terminated : 0));
     const netSubsData = labels.map(monthKey => (monthlyData[monthKey] ? monthlyData[monthKey].net : 0));
 
-    // Convert 'YYYY-MM' labels to 'Bulan YYYY' for display
+    // Convert 'YYYY-MM' labels to 'BulanAPAC' for display
     const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni",
                         "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
     const displayLabels = labels.map(label => {
@@ -1984,39 +1984,37 @@ function renderBranchDailyTerminationChart(data) {
 
     console.log(`renderBranchDailyTerminationChart: Year Filter: ${selectedYear}, Month Filter: ${selectedMonth}`);
 
-    let filteredData = data.filter(customer => {
+    // Filter data based on selected year and month for both actual terminations and forecasts
+    let filteredDataForChart = data.filter(customer => {
         const termDate = customer.TERMDATE;
-        const expiredDate = customer.EXPIREDDATE; // For forecast
 
-        // Include customers with TERMDATE or EXPIREDDATE within the selected month/year
-        const yearMatch = selectedYear ? (termDate && termDate.getFullYear().toString() === selectedYear) || (expiredDate && expiredDate.getFullYear().toString() === selectedYear) : true;
-        const monthMatch = selectedMonth ? (termDate && (termDate.getMonth() + 1).toString().padStart(2, '0') === selectedMonth) || (expiredDate && (expiredDate.getMonth() + 1).toString().padStart(2, '0') === selectedMonth) : true;
-        
-        return yearMatch && monthMatch;
+        // Check if TERMDATE falls within the selected month/year for any customer
+        return termDate instanceof Date &&
+               (selectedYear ? termDate.getFullYear().toString() === selectedYear : true) &&
+               (selectedMonth ? (termDate.getMonth() + 1).toString().padStart(2, '0') === selectedMonth : true);
     });
 
-    const dailyTerminationCounts = {}; // { 'YYYY-MM-DD': count }
-    const dailyForecastCounts = {}; // { 'YYYY-MM-DD': count }
+    const dailyTerminationCounts = {}; // { 'YYYY-MM-DD': count } for actual terminations
+    const dailyForecastCounts = {}; // { 'YYYY-MM-DD': count } for forecast terminations
 
-    filteredData.forEach(c => {
-        // Actual terminations
-        if (c.STATUS === 'TERMINATED' && c.TERMDATE instanceof Date) {
-            const normalizedDate = new Date(c.TERMDATE);
-            normalizedDate.setHours(0, 0, 0, 0);
-            const dateKey = normalizedDate.toLocaleDateString('en-CA');
+    filteredDataForChart.forEach(c => {
+        const normalizedDate = new Date(c.TERMDATE);
+        normalizedDate.setHours(0, 0, 0, 0);
+        const dateKey = normalizedDate.toLocaleDateString('en-CA');
+
+        // Actual terminations: STATUS is 'TERMINATED' and TERMDATE is within the selected month
+        if (c.STATUS === 'TERMINATED') {
             dailyTerminationCounts[dateKey] = (dailyTerminationCounts[dateKey] || 0) + 1;
         }
-        // Forecast terminations (based on EXPIREDDATE for non-terminated active/suspended customers)
-        else if (c.EXPIREDDATE instanceof Date && (c.STATUS === 'ACTIVE' || c.STATUS === 'SUSPENDED')) {
-            const normalizedDate = new Date(c.EXPIREDDATE);
-            normalizedDate.setHours(0, 0, 0, 0);
-            const dateKey = normalizedDate.toLocaleDateString('en-CA');
+        // Forecast terminations: STATUS is NOT 'TERMINATED' (e.g., 'ACTIVE', 'SUSPENDED') AND TERMDATE is in the selected month
+        else if (c.STATUS !== 'TERMINATED') { 
             dailyForecastCounts[dateKey] = (dailyForecastCounts[dateKey] || 0) + 1;
         }
     });
     console.log('Daily Termination Counts for chart:', dailyTerminationCounts);
     console.log('Daily Forecast Counts for chart:', dailyForecastCounts);
 
+    // Determine the year and month to generate labels for
     const year = parseInt(selectedYear || (latestAvailableDataDate ? latestAvailableDataDate.getFullYear() : new Date().getFullYear()));
     const month = parseInt(selectedMonth || (latestAvailableDataDate ? latestAvailableDataDate.getMonth() + 1 : new Date().getMonth() + 1));
     const daysInMonth = new Date(year, month, 0).getDate();
@@ -2031,7 +2029,7 @@ function renderBranchDailyTerminationChart(data) {
         const day = i.toString().padStart(2, '0');
         const monthStr = month.toString().padStart(2, '0');
         const dateKey = `${year}-${monthStr}-${day}`; 
-        labels.push(i);
+        labels.push(i); // Labels are just the day numbers
 
         const terminationCount = dailyTerminationCounts[dateKey] || 0;
         const forecastCount = dailyForecastCounts[dateKey] || 0;
@@ -2154,7 +2152,8 @@ function renderBranchDailyTerminationChart(data) {
             const clickedDay = parseInt(label);
             console.log(`Termination Chart clicked: Day ${clickedDay}, Year: ${selectedYear}, Month: ${selectedMonth}`);
 
-            displayDailyTerminationSubscribersDetail(filteredData, selectedYear, selectedMonth, clickedDay);
+            // Pass the original filteredDataForChart to displayDailyTerminationSubscribersDetail
+            displayDailyTerminationSubscribersDetail(filteredDataForChart, selectedYear, selectedMonth, clickedDay);
         } else {
             if (tableBody) {
                 tableBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Klik bar pada grafik untuk melihat detail pelanggan terminasi harian.</td></tr>';
@@ -2186,10 +2185,9 @@ function displayDailyTerminationSubscribersDetail(allFilteredData, selectedYear,
     const customersForClickedDay = allFilteredData.filter(customer => {
         let customerDate = null;
 
-        if (customer.STATUS === 'TERMINATED' && customer.TERMDATE instanceof Date) {
+        // Use TERMDATE for both actual and forecast, differentiating by STATUS
+        if (customer.TERMDATE instanceof Date) {
             customerDate = new Date(customer.TERMDATE);
-        } else if (customer.EXPIREDDATE instanceof Date && (customer.STATUS === 'ACTIVE' || customer.STATUS === 'SUSPENDED')) {
-            customerDate = new Date(customer.EXPIREDDATE);
         }
 
         if (!customerDate) return false;
